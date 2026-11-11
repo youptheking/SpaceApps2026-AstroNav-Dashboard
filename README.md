@@ -61,7 +61,7 @@ Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
 | ICM45686 / MPU6050 | Beweging, activiteit, slaap, tremoren |
 | GSR / AD8232 | Huidgeleiding (stress), ECG-hartgolf |
 | TSL2591 / BH1750 | Omgevingslicht en blauw licht (circadiaans ritme) |
-| SCD40 / SGP30 | Cabine-CO2 en luchtkwaliteit |
+| SCD41 | Cabine-CO2 (tot 5000 ppm gespecificeerd), temperatuur, luchtvochtigheid |
 
 ## Functies (gepland)
 
