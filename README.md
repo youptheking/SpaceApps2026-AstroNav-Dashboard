@@ -57,7 +57,7 @@ Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
 | Bron | Meting |
 |---|---|
 | MAX30102 / MAX86141 | Hartslag, SpO2 |
-| TMP117 / MCP9808 | Lichaamstemperatuur |
+| MAX30102 (ingebouwde sensor) | Trend van de huidtemperatuur (afwijking van de baseline, geen absolute koortswaarde) |
 | ICM45686 / MPU6050 | Beweging, activiteit, slaap, tremoren |
 | GSR / AD8232 | Huidgeleiding (stress), ECG-hartgolf |
 | TSL2591 / BH1750 | Omgevingslicht en blauw licht (circadiaans ritme) |
