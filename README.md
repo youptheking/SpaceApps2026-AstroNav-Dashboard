@@ -60,7 +60,6 @@ Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
 | MAX30102 (ingebouwde sensor) | Trend van de huidtemperatuur (afwijking van de baseline, geen absolute koortswaarde) |
 | ICM45686 / MPU6050 | Beweging, activiteit, slaap, tremoren |
 | GSR / AD8232 | Huidgeleiding (stress), ECG-hartgolf |
-| TSL2591 / BH1750 | Omgevingslicht en blauw licht (circadiaans ritme) |
 | SCD41 | Cabine-CO2 (tot 5000 ppm gespecificeerd), temperatuur, luchtvochtigheid |
 
 ## Functies (gepland)
