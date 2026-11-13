@@ -68,3 +68,11 @@ Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
 - **Realtime grafieken** van alle vitale functies en omgevingswaarden
 - **Gezondheidstrends** over langere tijd: slaap, stress, temperatuur, activiteit
 - **Beslissingspaneel** met concrete acties voor de astronaut, zoals rust nemen, ademhalingstraining starten of reageren op verhoogde CO2
+
+## Gebruik van AI (SI)
+
+Volgens de regels van NASA Space Apps vermelden we waar AI-tools ("Super Intelligence", SI) zijn gebruikt.
+
+- **Idee en concept:** eigen werk. Het concept met polsstation en dashboard, en de keuze voor de challenge, stonden vast vóór er AI werd gebruikt.
+- **Voorbereiding met Claude (Anthropic):** onderzoek naar leverbare onderdelen, de stroom- en pinberekeningen en de eerste versies van de documenten in `docs/` (inkooplijst, ontwerpkeuzes, stroombudget, pinout). De ontwerpbeslissingen zijn door de maker genomen en gecontroleerd.
+- **Code:** waar code met AI-hulp is geschreven, staat dat in de commitbeschrijving en in een opmerking in het betreffende bestand.
