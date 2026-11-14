@@ -64,7 +64,7 @@ Het binaire pakketformaat (service, characteristics, pakkettypes, schaalfactoren
 | MAX30102 (ingebouwde sensor) | Trend van de huidtemperatuur (afwijking van de baseline, geen absolute koortswaarde) |
 | ICM45686 / MPU6050 | Beweging, activiteit, slaap, tremoren |
 | GSR / AD8232 | Huidgeleiding (stress), ECG-hartgolf |
-| BH1750 | Omgevingslicht (circadiaans ritme, slaap) |
+| ~~BH1750~~ | Geschrapt tijdens de bouw (zie de firmware-repo) |
 | SCD41 | Cabine-CO2 (tot 5000 ppm gespecificeerd), temperatuur, luchtvochtigheid |
 
 ## Functies (gepland)
