@@ -52,6 +52,10 @@ Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
                                                              beslissingspaneel
 ```
 
+## BLE-protocol
+
+Het binaire pakketformaat (service, characteristics, pakkettypes, schaalfactoren) staat in `docs/ble-protocol.md` in de zusterrepo SpaceApps2026-AstroNav-Firmware. Firmware en dashboard volgen allebei dat document.
+
 ## Binnenkomende data
 
 | Bron | Meting |
