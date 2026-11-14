@@ -65,6 +65,8 @@ Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
 
 ## Functies (gepland)
 
+- **NASA-STD-3001 als referentie:** de CO2-grafiek toont de limiet van 3 mmHg (1-uursgemiddelde, requirement V2 6004) en het doel van 2,5 mmHg voor de lange termijn als referentielijnen. Details en bronnen: `docs/nasa-std-3001.md` in de zusterrepo SpaceApps2026-AstroNav-Firmware.
+
 - **Realtime grafieken** van alle vitale functies en omgevingswaarden
 - **Gezondheidstrends** over langere tijd: slaap, stress, temperatuur, activiteit
 - **Beslissingspaneel** met concrete acties voor de astronaut, zoals rust nemen, ademhalingstraining starten of reageren op verhoogde CO2
