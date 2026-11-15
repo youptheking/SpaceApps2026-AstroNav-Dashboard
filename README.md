@@ -41,7 +41,9 @@ Being part of space has been my dream since I was young. At home, space is what 
 
 ## Build your own watch
 
-Everything you need to build the hardware is in [`hardware/`](hardware/):
+The schematic and PCB design are open on **OSHWLab**, where you can view them in the browser and copy the EasyEDA project: [https://oshwlab.com/youphoutkamp/project_ougymktu](https://oshwlab.com/youphoutkamp/project_ougymktu)
+
+Everything you need to build the hardware is also in [`hardware/`](hardware/):
 
 | File | What |
 |---|---|
@@ -111,7 +113,7 @@ The idea and concept are my own. Claude (Anthropic) was used to research parts, 
 AstroNav is open source. You may use it, change it and share it, as long as you share your changes under the same license.
 
 - **Software** (this console and the [firmware](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware)): [GPL-3.0](LICENSE)
-- **Hardware** (PCB and case in [`hardware/`](hardware/)): [CERN-OHL-S v2](hardware/LICENSE)
+- **Hardware** (PCB and case in [`hardware/`](hardware/) and [on OSHWLab](https://oshwlab.com/youphoutkamp/project_ougymktu)): [CERN-OHL-S v2](hardware/LICENSE)
 
 The names AstroNav and YoupSpace and the logos are not covered by these licenses. Please don't present your own version under these names.
 
