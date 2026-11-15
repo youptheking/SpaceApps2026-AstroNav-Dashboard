@@ -5,7 +5,7 @@ import type { Snapshot } from '../types';
 import { sample } from '../data/sample';
 import { DEMO_TICK_MS, DemoWatch } from './demo';
 import { LiveModel } from './live';
-import type { LinkStatus, Packet } from './packets';
+import { CONNECTION_CANCELLED, type LinkStatus, type Packet } from './packets';
 
 const inTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const REFRESH_MS = 250;
@@ -50,9 +50,15 @@ export function useTelemetry(): Telemetry {
   const [error, setError] = useState<string | null>(null);
   const [demoWanted, setDemo] = useState(false);
   const live = link.state === 'connected';
+  // a short dropout keeps the history and the screen; only a new session starts from zero
+  const session = live || link.state === 'reconnecting';
   // the real watch wins over the pretend one
-  const demo = demoWanted && !live;
-  const streaming = live || demo;
+  const demo = demoWanted && !session;
+
+  const showError = useCallback((e: unknown) => {
+    const msg = String(e);
+    if (msg !== CONNECTION_CANCELLED) setError(msg);
+  }, []);
 
   useEffect(() => {
     if (!inTauri()) return;
@@ -61,7 +67,7 @@ export function useTelemetry(): Telemetry {
       listen<LinkStatus>('ble-status', (e) => {
         setLink(e.payload);
         if (e.payload.state === 'disconnected' && e.payload.reason) setError(e.payload.reason);
-        if (e.payload.state === 'connected') setError(null);
+        if (e.payload.state === 'connected' || e.payload.state === 'reconnecting') setError(null);
       }),
     ];
     return () => unlisten.forEach((p) => p.then((off) => off()));
@@ -79,49 +85,57 @@ export function useTelemetry(): Telemetry {
     return () => clearInterval(id);
   }, [demo]);
 
+  // a new watch session starts from zero; a reconnect within the session keeps the history
+  useEffect(() => {
+    if (session) model.current = new LiveModel();
+  }, [session]);
+
   // packets arrive ~40 times a second; the screen redraws a few times a second
   useEffect(() => {
-    if (!streaming) return;
-    if (live) model.current = new LiveModel();
+    if (!session && !demo) {
+      setData(sample);
+      return;
+    }
     const id = setInterval(() => {
       if (model.current.packets === 0) return;
       const snap = model.current.snapshot({ crew: sample.crew, checkIn: sample.checkIn });
       setData(demo ? { ...snap, source: 'demo' } : snap);
     }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [streaming, live, demo]);
-
-  useEffect(() => {
-    if (!streaming) setData(sample);
-  }, [streaming]);
+  }, [session, demo]);
 
   const connect = useCallback((code: string) => {
     setError(null);
     invoke<string>('ble_connect', { code: Number(code) })
       .then(() => rememberCode(code))
-      .catch((e) => setError(String(e)));
-  }, []);
+      .catch(showError);
+  }, [showError]);
 
   const disconnect = useCallback(() => {
-    invoke('ble_disconnect').catch((e) => setError(String(e)));
-  }, []);
+    invoke('ble_disconnect').catch(showError);
+  }, [showError]);
 
   const sendAlert = useCallback(async (code: number, severity: number, messageId: number) => {
-    if (!live) return true;
+    if (!session) return true; // sample data: nothing to send to
+    if (!live) {
+      setError('The watch is reconnecting. Try again in a moment.');
+      return false;
+    }
     try {
       await invoke('ble_send_alert', { code, severity, messageId });
       return true;
     } catch (e) {
-      setError(String(e));
+      showError(e);
       return false;
     }
-  }, [live]);
+  }, [session, live, showError]);
 
   const markHandled = useCallback((id: string, code: number | null) => {
-    if (!streaming) return;
+    if (!session) return;
     model.current.markHandled(id);
-    if (live && code !== null) invoke('ble_clear_alert', { code }).catch((e) => setError(String(e)));
-  }, [streaming, live]);
+    // while reconnecting the watch keeps beeping; the handled mark stays on the dashboard
+    if (code !== null && live) invoke('ble_clear_alert', { code }).catch(showError);
+  }, [session, live, showError]);
 
   const ecgSamples = useCallback(() => model.current.ecgSamples(), []);
 
@@ -135,6 +149,6 @@ export function useTelemetry(): Telemetry {
     disconnect,
     sendAlert,
     markHandled,
-    ecgSamples: streaming ? ecgSamples : null,
+    ecgSamples: session ? ecgSamples : null,
   };
 }

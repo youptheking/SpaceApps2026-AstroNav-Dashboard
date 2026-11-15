@@ -32,7 +32,7 @@ export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string
   const [handled, setHandled] = useState<Set<string>>(new Set());
   const close = useCallback(() => setPop(null), []);
   const times = sampleTimes(data.seriesStart, data.hrv.length, data.seriesStepMinutes);
-  const linkLost = link.state === 'disconnected' && telemetry.error !== null;
+  const linkLost = link.state === 'reconnecting' || (link.state === 'disconnected' && telemetry.error !== null);
 
   // the link window has done its job once the watch is unlocked
   useEffect(() => {

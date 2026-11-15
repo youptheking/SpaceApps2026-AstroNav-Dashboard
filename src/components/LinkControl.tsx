@@ -25,6 +25,18 @@ export function LinkControl({ telemetry }: { telemetry: Telemetry }) {
     );
   }
 
+  if (link.state === 'reconnecting') {
+    return (
+      <div className="link-pop">
+        <p className="popup-text">
+          <span className="dot watch" /> Signal lost. Reconnecting to <b>{link.name}</b>
+          {link.attempt > 1 ? `, attempt ${link.attempt}` : ''}. The console shows the last values received.
+        </p>
+        <button className="btn" onClick={disconnect}>Stop reconnecting</button>
+      </div>
+    );
+  }
+
   return (
     <div className="link-pop">
       <p className="popup-text">
@@ -52,6 +64,7 @@ export function LinkControl({ telemetry }: { telemetry: Telemetry }) {
         <button className="btn primary" type="submit" disabled={!validCode || busy}>
           {link.state === 'scanning' ? 'Searching' : link.state === 'connecting' ? 'Unlocking' : 'Connect watch'}
         </button>
+        {busy && <button className="btn" type="button" onClick={disconnect}>Cancel</button>}
       </form>
       {error && <p className="link-error" role="alert">{error}</p>}
     </div>

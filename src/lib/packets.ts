@@ -32,7 +32,11 @@ export type LinkStatus =
   | { state: 'disconnected'; reason: string | null }
   | { state: 'scanning' }
   | { state: 'connecting'; name: string }
-  | { state: 'connected'; name: string };
+  | { state: 'connected'; name: string }
+  | { state: 'reconnecting'; name: string; attempt: number; reason: string };
+
+// ble.rs CANCELLED: the user stopped a connection attempt, not an error to show
+export const CONNECTION_CANCELLED = 'Connection cancelled.';
 
 // STATUS.sensors_ok and SIM.simulated share these bits
 export const SENSOR = { max30102: 1, ad8232: 2, mpu6050: 4, scd41: 8, bmp180: 16, bh1750: 32, oled: 64, gsr: 128 } as const;
