@@ -155,6 +155,12 @@ export function SystemDetail({ systems, id }: { systems: BodySystem[]; id: BodyS
         <p>{s.inSpace}</p>
         <h3>When to act</h3>
         <p>{s.whenToAct}</p>
+        <h3>NASA Human Research Program</h3>
+        <p className="hrp">
+          <span className="k">Hazard</span> {s.hazard}
+          <br />
+          <span className="k">{s.risks.length > 1 ? 'Risks' : 'Risk'}</span> {s.risks.join(' · ')}
+        </p>
       </div>
     </div>
   );

@@ -57,6 +57,9 @@ export interface BodySystem {
   what: string;
   inSpace: string;
   whenToAct: string;
+  // NASA Human Research Program: the hazard of spaceflight and the HRP risks this system relates to
+  hazard: string;
+  risks: string[];
 }
 
 export interface AlertEvent {

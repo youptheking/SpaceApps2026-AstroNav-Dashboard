@@ -1,7 +1,9 @@
 import type { BodySystem, Status, Vitals } from '../types';
 import { percentFromBaseline } from './health';
 
-type Text = Pick<BodySystem, 'name' | 'what' | 'inSpace' | 'whenToAct'>;
+type Text = Pick<BodySystem, 'name' | 'what' | 'inSpace' | 'whenToAct' | 'hazard' | 'risks'>;
+
+// Hazards and risk titles as NASA's Human Research Program names them (nasa.gov/hrp/hazards, nasa.gov/hrp/risks).
 
 export const SYSTEM_TEXT: Record<BodySystem['id'], Text> = {
   nerves: {
@@ -9,30 +11,40 @@ export const SYSTEM_TEXT: Record<BodySystem['id'], Text> = {
     what: 'Heart rate variability and skin conductance show how hard your nervous system is working.',
     inSpace: 'Isolation, a packed schedule and broken sleep keep the stress response switched on. On long missions this is one of the main risks NASA tracks.',
     whenToAct: 'Take a break when HRV stays well below your own baseline for more than 10 minutes. Talk to the flight surgeon if it lasts for days.',
+    hazard: 'Isolation and Confinement',
+    risks: ['Risk of Behavioral Changes and Psychiatric Disorders', 'Risk of Inadequate Sleep and Irregular Schedules'],
   },
   heart: {
     name: 'Heart',
     what: 'Heart rate from the optical sensor and from the ECG, plus the rhythm between beats.',
     inSpace: 'In weightlessness blood shifts towards the head and the heart has less work to do. Over months it can lose some of its strength.',
     whenToAct: 'A resting heart rate above 120 bpm for 5 minutes, or below 40, raises an alert on your wrist.',
+    hazard: 'Gravity Fields',
+    risks: ['Risk of Cardiovascular Adaptations'],
   },
   lungs: {
     name: 'Lungs and oxygen',
     what: 'How much of your blood is carrying oxygen.',
     inSpace: 'Cabin air is closed and recycled. A fault in life support shows up here and in the CO2 reading.',
     whenToAct: 'Below 94 % for 30 seconds is a warning, below 90 % an alarm. Stop exercising and check the cabin air.',
+    hazard: 'Hostile/Closed Environments',
+    risks: ['Risk of Hypoxia'],
   },
   skin: {
     name: 'Skin and temperature',
     what: 'Temperature measured at the wrist. It follows trends, it is not your core temperature.',
     inSpace: 'The immune system changes in space and infections can start quietly. A slow rise over a day is worth noting.',
     whenToAct: 'Compare with your own normal range rather than a fixed number. Log how you feel in the check-in.',
+    hazard: 'Hostile/Closed Environments',
+    risks: ['Risk of Altered Immune System Responses'],
   },
   muscle: {
     name: 'Muscles and bones',
     what: 'Movement from the wrist sensor: rest, light or intense activity, and tremor.',
     inSpace: 'Without gravity, bones lose 1 to 1.5 % of their mass per month and muscles shrink. Daily exercise is the main protection.',
     whenToAct: 'Plan the rest of today’s exercise. A new tremor at rest is worth reporting.',
+    hazard: 'Gravity Fields',
+    risks: ['Risk of Reduced Cardiorespiratory and Musculoskeletal Fitness', 'Risk of Spaceflight-Induced Bone Changes'],
   },
 };
 

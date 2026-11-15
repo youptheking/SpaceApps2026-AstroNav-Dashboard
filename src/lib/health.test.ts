@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { hourAverage, niceTicks, percentFromBaseline, rmssd, sampleTimes, signed } from './health';
 import { sample } from '../data/sample';
+import { SYSTEM_TEXT } from './systems';
 
 describe('health helpers', () => {
   test('hour average uses the last hour of samples and skips gaps', () => {
@@ -46,4 +47,13 @@ describe('sample data agrees with itself', () => {
   test('the HRV figure matches the last point of the chart', () => {
     expect(sample.hrvNow).toBe(sample.hrv.at(-1));
   });
+});
+
+test('every body system names its NASA HRP hazard and at least one risk', () => {
+  const hazards = ['Space Radiation', 'Isolation and Confinement', 'Distance from Earth', 'Gravity Fields', 'Hostile/Closed Environments'];
+  for (const t of Object.values(SYSTEM_TEXT)) {
+    expect(hazards).toContain(t.hazard);
+    expect(t.risks.length).toBeGreaterThan(0);
+    for (const r of t.risks) expect(r).toMatch(/^Risk of /);
+  }
 });

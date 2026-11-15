@@ -79,6 +79,9 @@ export function CabinDetail({ cabin, simulated, times }: Props & { times: string
             The station&rsquo;s own sensors sit in a few places; this one sits on your wrist, so it measures the air you breathe.
           </p>
           <p className="muted">1-hour limit 3 mmHg from NASA-STD-3001 Vol. 2, V2 6004.</p>
+          <p className="muted">
+            NASA Human Research Program hazard: Hostile/Closed Environments, &ldquo;ensuring optimal temperatures, pressures&rdquo; and the air inside the spacecraft.
+          </p>
         </div>
       </div>
     </>

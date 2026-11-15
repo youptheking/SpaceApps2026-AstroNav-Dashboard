@@ -183,3 +183,5 @@
 
 /* an optical value held over a short dropout: still shown, visibly older */
 .held { opacity: 0.5; }
+
+.hrp .k { display: inline-block; min-width: 54px; }
