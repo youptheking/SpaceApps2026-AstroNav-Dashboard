@@ -11,7 +11,7 @@ test('the caution and warning row lights the open stress alert', () => {
 
 test('a body system opens its explanation in a popup', () => {
   render(<App />);
-  const body = screen.getByRole('region', { name: 'Body systems' });
+  const body = screen.getByRole('region', { name: 'Body' });
   fireEvent.click(within(body).getByRole('button', { name: /^Heart/ }));
   const popup = screen.getByRole('dialog', { name: 'Heart' });
   expect(within(popup).getByText(/blood shifts towards the head/)).toBeInTheDocument();
@@ -34,4 +34,12 @@ test('the breathing exercise can be sent once', async () => {
 test('without a watch the screen says it shows sample data', () => {
   render(<App />);
   expect(screen.getByText('Sample data')).toBeInTheDocument();
+});
+
+test('the ECG leads tab shows where the three electrodes go', () => {
+  render(<App />);
+  const body = screen.getByRole('region', { name: 'Body' });
+  fireEvent.click(within(body).getByRole('tab', { name: 'ECG leads' }));
+  expect(within(body).getByRole('img', { name: /three ECG electrodes/ })).toBeInTheDocument();
+  expect(within(body).getByText('Right chest, just under the collarbone')).toBeInTheDocument();
 });

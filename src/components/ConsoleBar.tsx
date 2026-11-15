@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Snapshot } from '../types';
 import type { LinkStatus } from '../lib/packets';
 
@@ -8,6 +9,13 @@ interface Props {
   demo: boolean;
   onDemo: (on: boolean) => void;
   onLink: () => void;
+}
+
+// a logo from public/logos; when the file is not there the name alone is shown
+function Logo({ src }: { src: string }) {
+  const [missing, setMissing] = useState(false);
+  if (missing) return null;
+  return <img className="logo" src={src} alt="" onError={() => setMissing(true)} />;
 }
 
 const linkText = (link: LinkStatus) => {
@@ -29,8 +37,11 @@ export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink }: Props) {
   return (
     <header className="bar">
       <div className="brand">
+        <Logo src="/logos/youpspace.svg" />
         <span className="name">AstroNav</span>
         <span className="k">YoupSpace</span>
+        <span className="sep" aria-hidden="true" />
+        <Logo src="/logos/space-apps.png" />
         <span className="k">NASA Space Apps 2026</span>
       </div>
 

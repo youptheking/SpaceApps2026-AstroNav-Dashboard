@@ -8,7 +8,7 @@
   display: flex; align-items: center; gap: 22px; padding: 0 10px;
   background: var(--surface); border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: baseline; gap: 8px; flex: none; }
+.brand { display: flex; align-items: center; gap: 8px; flex: none; }
 .brand svg { display: none; }
 .brand .name { font-weight: 600; font-size: 14px; }
 .crew { display: flex; gap: 18px; margin: 0; min-width: 0; overflow: hidden; }
@@ -105,7 +105,8 @@
   .bar-end { margin-left: 0; flex-wrap: wrap; }
 }
 
-.brand .k + .k::before { content: "\00b7"; margin-right: 8px; }
+.brand .logo { height: 22px; width: auto; display: block; }
+.brand .sep { width: 1px; height: 18px; background: var(--border-strong); margin: 0 4px; }
 .toggle {
   display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 9px 0 6px; cursor: pointer;
   background: none; border: 1px solid var(--border-strong); border-radius: var(--radius); white-space: nowrap;

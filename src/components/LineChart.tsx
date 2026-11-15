@@ -65,7 +65,10 @@ export function LineChart({ label, times, values, yTicks, height: fixed, colour 
           {annotation && (
             <g>
               <line x1={x(annotation.index)} x2={x(annotation.index)} y1={padTop - 6} y2={padTop + plotH} className="mark-line" />
-              <text x={x(annotation.index) + 6} y={padTop - 8} className="axis">{annotation.label}</text>
+              {/* near the right edge the label goes on the left of the line */}
+              {x(annotation.index) > width * 0.7
+                ? <text x={x(annotation.index) - 6} y={padTop - 8} textAnchor="end" className="axis">{annotation.label}</text>
+                : <text x={x(annotation.index) + 6} y={padTop - 8} className="axis">{annotation.label}</text>}
             </g>
           )}
           <path d={pathOf(values, x, y)} fill="none" stroke={colour} strokeWidth={2} strokeLinejoin="round" />
