@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { BodySystem } from '../types';
 import { Panel } from './Panel';
 
@@ -53,33 +54,87 @@ interface StatusProps {
   onLeads: () => void;
 }
 
+function ElectrodeFigure() {
+  return (
+    <svg className="figure" viewBox="0 0 150 300" role="img" aria-label="Chest with the heart and the three ECG electrodes">
+      <Silhouette />
+      <path className="heart-shape" transform="translate(85 101) scale(1.9) translate(-86 -102)" d="M86 111c-7-4.5-10.5-8-10.5-12a3.8 3.8 0 0 1 10.5-2.2 3.8 3.8 0 0 1 10.5 2.2c0 4-3.5 7.5-10.5 12z" />
+      {electrodes.map((e) => (
+        <g key={e.lead}>
+          <circle cx={e.x} cy={e.y} r="6" fill={e.colour} />
+          <circle cx={e.x} cy={e.y} r="2" fill="#13171d" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function LeadList() {
+  return (
+    <ul className="leads">
+      {electrodes.map((e) => (
+        <li key={e.lead}>
+          <span className="lead-dot" style={{ background: e.colour }} />
+          <span><b>{e.lead}</b><span className="where">{e.where}</span></span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type Tab = 'systems' | 'leads';
+
 export function CrewStatus({ systems, leadsOff, onSystem, onLeads }: StatusProps) {
+  const [tab, setTab] = useState<Tab>('systems');
   const concerns = systems.filter((s) => s.status !== 'ok').length;
 
+  // a loose electrode is the moment someone needs to see where it goes
+  useEffect(() => {
+    if (leadsOff) setTab('leads');
+  }, [leadsOff]);
+
+  const tabs = (
+    <span className="tabs" role="tablist" aria-label="Body view">
+      <button role="tab" aria-selected={tab === 'systems'} onClick={() => setTab('systems')}>
+        Systems{concerns > 0 && <span className="dot watch" aria-label={`${concerns} to watch`} />}
+      </button>
+      <button role="tab" aria-selected={tab === 'leads'} onClick={() => setTab('leads')}>
+        ECG leads{leadsOff && <span className="dot watch" aria-label="electrode loose" />}
+      </button>
+    </span>
+  );
+
   return (
-    <Panel title="Body systems" className="body" meta={concerns ? `${concerns} to watch` : 'All nominal'}>
-      <svg className="figure" viewBox="0 0 150 300" aria-hidden="true">
-        <Silhouette />
-        <Spots systems={systems} onPick={onSystem} />
-      </svg>
-      <ul className="systems">
-        {systems.map((s) => (
-          <li key={s.id}>
-            <button onClick={() => onSystem(s.id)}>
-              <span className={`dot ${s.status}`} />
-              <span className="name">{s.name}</span>
-              <span className="state">{s.state}</span>
-            </button>
-          </li>
-        ))}
-        <li>
-          <button onClick={onLeads}>
-            <span className={`dot ${leadsOff ? 'watch' : 'info'}`} />
-            <span className="name">ECG electrodes</span>
-            <span className="state">{leadsOff ? 'One is loose' : 'Where they go'}</span>
-          </button>
-        </li>
-      </ul>
+    <Panel title="Body" className="body" meta={tabs} more={tab === 'leads' ? 'More' : undefined} onMore={tab === 'leads' ? onLeads : undefined}>
+      {tab === 'systems' ? (
+        <>
+          <svg className="figure" viewBox="0 0 150 300" aria-hidden="true">
+            <Silhouette />
+            <Spots systems={systems} onPick={onSystem} />
+          </svg>
+          <ul className="systems">
+            {systems.map((s) => (
+              <li key={s.id}>
+                <button onClick={() => onSystem(s.id)}>
+                  <span className={`dot ${s.status}`} />
+                  <span className="name">{s.name}</span>
+                  <span className="state">{s.state}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <>
+          <ElectrodeFigure />
+          <div className="leads-tab">
+            <LeadList />
+            <p className={`lead-state ${leadsOff ? 'watch-text' : 'muted'}`}>
+              {leadsOff ? 'An electrode is loose. Press it down or replace the sticker.' : 'All three electrodes are on.'}
+            </p>
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
@@ -108,25 +163,9 @@ export function SystemDetail({ systems, id }: { systems: BodySystem[]; id: BodyS
 export function EcgSetup({ leadsOff }: { leadsOff: boolean }) {
   return (
     <div className="detail-split">
-      <svg className="figure" viewBox="0 0 150 300" role="img" aria-label="Chest with the heart and the three ECG electrodes">
-        <Silhouette />
-        <path className="heart-shape" transform="translate(85 101) scale(1.9) translate(-86 -102)" d="M86 111c-7-4.5-10.5-8-10.5-12a3.8 3.8 0 0 1 10.5-2.2 3.8 3.8 0 0 1 10.5 2.2c0 4-3.5 7.5-10.5 12z" />
-        {electrodes.map((e) => (
-          <g key={e.lead}>
-            <circle cx={e.x} cy={e.y} r="6" fill={e.colour} />
-            <circle cx={e.x} cy={e.y} r="2" fill="#0b1119" />
-          </g>
-        ))}
-      </svg>
+      <ElectrodeFigure />
       <div className="explain">
-        <ul className="leads">
-          {electrodes.map((e) => (
-            <li key={e.lead}>
-              <span className="lead-dot" style={{ background: e.colour }} />
-              <span><b>{e.lead}</b><span className="where">{e.where}</span></span>
-            </li>
-          ))}
-        </ul>
+        <LeadList />
         <p className={leadsOff ? 'watch-text' : 'muted'}>
           {leadsOff ? 'An electrode is loose. Press it down or replace the sticker.' : 'All three electrodes are on.'}
         </p>

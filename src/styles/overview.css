@@ -161,3 +161,19 @@
   .detail-split, .detail-cols, .explain.cols { grid-template-columns: 1fr; }
   .detail-split .figure { width: 110px; justify-self: center; }
 }
+
+/* tabs in the body panel head */
+.tabs { display: flex; gap: 2px; margin-left: 4px; }
+.tabs button {
+  display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; cursor: pointer;
+  background: none; border: 1px solid transparent; border-radius: var(--radius); color: var(--muted); font-size: 12px;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--text); background: var(--raised); border-color: var(--border-strong); }
+.tabs .dot { width: 6px; height: 6px; }
+.body .panel-meta { overflow: visible; }
+.leads-tab { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; overflow: auto; }
+.leads-tab .leads li { padding: 4px 0; }
+.leads-tab .leads b { font-size: 12px; }
+.leads-tab .where { font-size: 11px; line-height: 15px; }
+.lead-state { margin: 4px 0 0; font-size: 12px; }
