@@ -67,7 +67,13 @@ Tauri 2 · Rust (`btleplug`) for BLE and packet parsing · React + TypeScript ·
 Wrist station (ESP32-S3)  --BLE-->  Rust backend (Tauri)  -->  React console
 ```
 
-## Run
+## Try it on Windows
+
+Download **`AstroNav Dashboard_0.1.0_x64-setup.exe`** from the [latest release](https://github.com/youptheking/SpaceApps2026-AstroNav-Dashboard/releases/latest) and run it. No watch? Turn on **Demo** in the top bar and the console plays a five minute scenario on simulated data.
+
+The installer is not code signed, so Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+## Run from source
 
 ```
 npm install
@@ -87,6 +93,8 @@ Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry
 
 ## Limitations
 
+- ECG heart rate is not yet reliable on my watch (small spikes every 150 ms); the ECG trace works, the optical heart rate is used
+- The BMP180 on my watch gives impossible readings, so there is no cabin pressure or pressure trend on this unit
 - One real wrist station; the other crew members are demo crew on pretend watches
 - The check-in is stored on this laptop only
 - No radiation sensor (CSA's CANS dosimeter is the logical next step)
