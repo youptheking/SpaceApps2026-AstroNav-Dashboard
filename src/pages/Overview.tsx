@@ -46,7 +46,7 @@ export function Overview({ telemetry, now }: { telemetry: Telemetry; now: string
           hrvBaseline={data.hrvBaseline}
           ecgSamples={telemetry.ecgSamples}
         />
-        <BodyMap systems={data.systems} />
+        <BodyMap systems={data.systems} leadsOff={data.vitals.leadsOff} />
         <NextStep
           advice={adviceFor(data)}
           times={times}
