@@ -1,4 +1,4 @@
-<img src="public/logos/youpspace.svg" alt="YoupSpace" height="40">
+<img src="public/logos/youpspace.png" alt="YoupSpace" height="40"> &nbsp; <img src="public/logos/space-apps.png" alt="NASA Space Apps Challenge" height="40">
 
 # AstroNav Console – Desktop Dashboard
 
@@ -68,11 +68,9 @@ Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry
 
 ## Use of AI
 
-Per the Space Apps rules, we disclose where AI ("SI") was used.
+Per the Space Apps rules, I disclose where AI ("SI") was used.
 
-- **Idea and concept:** our own. The wrist station plus console and the choice of challenge were fixed before any AI was used.
-- **Claude (Anthropic)** was used to write most of the code from our own design (layout, alarm classes, advice rules, protocol), and to draft documentation.
-- Everything was reviewed by us and tested with the real watch. AI use is credited here, in the project summary.
+The idea and concept are my own. Claude (Anthropic) was used to research parts, look up limits in NASA-STD-3001, draft documentation, and write a significant portion of the code from my own design. PCB design, milling, soldering, the case and all testing on the real watch were done by hand.
 
 ---
 
