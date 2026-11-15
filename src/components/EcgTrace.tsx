@@ -12,9 +12,11 @@ interface Props {
   bpm: number;
   // the last few seconds of real ECG in mV, newest last; without it the trace is synthetic
   samples?: (() => number[]) | null;
+  // the signal is not a usable heartbeat; drawn dimmed
+  poor?: boolean;
 }
 
-export function EcgTrace({ bpm, samples }: Props) {
+export function EcgTrace({ bpm, samples, poor = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -92,5 +94,5 @@ export function EcgTrace({ bpm, samples }: Props) {
     };
   }, [bpm, samples]);
 
-  return <canvas ref={canvasRef} className="ecg" role="img" aria-label={samples ? 'ECG from the wrist station, live' : 'ECG, sample trace'} />;
+  return <canvas ref={canvasRef} className={poor ? 'ecg poor' : 'ecg'} role="img" aria-label={samples ? 'ECG from the wrist station, live' : 'ECG, sample trace'} />;
 }

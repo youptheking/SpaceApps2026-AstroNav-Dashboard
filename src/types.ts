@@ -1,3 +1,5 @@
+import type { OpticalQuality } from './lib/signal';
+
 export type Status = 'ok' | 'watch' | 'alert';
 
 // null in a series means no reading in that interval
@@ -14,6 +16,10 @@ export interface Vitals {
   activity: number | null;
   leadsOff: boolean;
   skinContact: boolean;
+  // whether the optical sensor reading is trustworthy; hrPpg and spo2 are null when it is not
+  optical: OpticalQuality;
+  // whether the ECG looks like a heartbeat rather than mains hum, overload or a flat line
+  ecgUsable: boolean;
 }
 
 export interface Battery {

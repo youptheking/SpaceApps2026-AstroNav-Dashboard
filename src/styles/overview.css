@@ -35,6 +35,9 @@
   position: absolute; inset: 0; margin: auto; width: max-content; height: 30px; padding: 0 12px; cursor: pointer;
   background: #3b2c0a; border: 1px solid #7a5a14; border-radius: var(--radius); color: #ffd27a;
 }
+/* poor ECG: the filtered line stays visible but dimmed, with the reason on top */
+.ecg.poor { opacity: 0.35; }
+.leads-off.over { inset: 4px 8px auto auto; margin: 0; height: 24px; font-size: 12px; }
 .readouts { display: grid; grid-template-columns: 1.3fr 1.1fr 1fr 1fr 1fr; flex: none; }
 .readout { padding: 8px 12px 10px; border-left: 1px solid var(--rule); min-width: 0; }
 .readout:first-child { border-left: 0; }

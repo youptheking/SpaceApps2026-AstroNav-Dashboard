@@ -27,6 +27,8 @@ export const sample: Snapshot = {
     activity: 0,
     leadsOff: false,
     skinContact: true,
+    optical: 'ok',
+    ecgUsable: true,
   },
   battery: { percent: 85, hoursLeft: 19, simulated: true },
   simulated: { optical: false, co2: false, pressure: false },

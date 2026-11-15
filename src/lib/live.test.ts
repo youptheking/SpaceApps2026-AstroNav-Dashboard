@@ -26,6 +26,26 @@ describe('LiveModel', () => {
     expect(s.systems.find((x) => x.id === 'lungs')?.state).toBe('SpO2 97 %');
   });
 
+  test('optical values taken during movement or with a weak pulse are not shown or acted on', () => {
+    const m = new LiveModel();
+    m.apply({
+      kind: 'vitals', header, hrPpg: 130, hrEcg: null, spo2: 91, perfusion: 0.2, skinTemp: 34.1, activity: 0,
+      tremorHz: null, tremorAmp: 0, skinContact: true, motionArtifact: true, leadsOff: false, shock: false,
+    }, at(30));
+    const s = m.snapshot(base, at(30, 5));
+    expect(s.vitals.spo2).toBeNull();
+    expect(s.vitals.hrPpg).toBeNull();
+    expect(s.vitals.optical).toBe('motion');
+    expect(s.vitals.perfusion).toBe(0.2);
+    expect(s.systems.find((x) => x.id === 'lungs')?.status).toBe('ok');
+  });
+
+  test('mains hum on the ECG marks it unusable', () => {
+    const m = new LiveModel();
+    for (let i = 0; i < 30; i++) m.apply({ kind: 'ecg', header, mv: Array.from({ length: 25 }, (_, j) => [2175, 3159, 2450, 150, 0][j % 5]!) }, at(30));
+    expect(m.snapshot(base, at(30, 1)).vitals.ecgUsable).toBe(false);
+  });
+
   test('an alert opens, gets worse in place and clears', () => {
     const m = new LiveModel();
     m.apply(event(2, true, 1, 93), at(10));

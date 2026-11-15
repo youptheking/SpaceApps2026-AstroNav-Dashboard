@@ -15,6 +15,14 @@ interface Props {
   onLeads: () => void;
 }
 
+// why the optical values are blank; nothing when the reading is good
+const OPTICAL_NOTE: Record<Vitals['optical'], string | null> = {
+  ok: null,
+  noContact: 'No skin contact',
+  motion: 'Hold still to measure',
+  weak: 'Weak signal, tighten the strap',
+};
+
 const Sim = () => <span className="pill sim" title="Simulated by the watch in demo mode">Sim</span>;
 
 interface ReadoutProps {
@@ -49,22 +57,29 @@ export function VitalsStrip({ vitals, battery, simulated, hrvNow, hrvBaseline, e
     >
       <div className="ecg-strip">
         <span className="strip-label">ECG &middot; 1 lead</span>
-        {ecgBpm !== null && !vitals.leadsOff
-          ? <EcgTrace bpm={ecgBpm} samples={ecgSamples} />
-          : <button className="leads-off" onClick={onLeads}>{vitals.leadsOff ? 'Leads off. Show where the electrodes go' : 'No ECG signal'}</button>}
+        {vitals.leadsOff || (!ecgSamples && ecgBpm === null)
+          ? <button className="leads-off" onClick={onLeads}>{vitals.leadsOff ? 'Leads off. Show where the electrodes go' : 'No ECG signal'}</button>
+          : <>
+            {/* live: always draw what comes in (mains hum filtered out), dimmed with a warning when it is not a heartbeat */}
+            <EcgTrace bpm={ecgBpm ?? 60} samples={ecgSamples} poor={!!ecgSamples && !vitals.ecgUsable} />
+            {ecgSamples && !vitals.ecgUsable && (
+              <button className="leads-off over" onClick={onLeads}>Poor signal, mostly mains hum. Check the electrodes</button>
+            )}
+          </>}
       </div>
       <div className="readouts">
         <Readout
           tone="hr" label="Heart rate" unit="bpm" sim={simulated.optical}
           sub={vitals.leadsOff ? 'ECG electrode loose'
+            : vitals.hrEcg === null && OPTICAL_NOTE[vitals.optical] ? OPTICAL_NOTE[vitals.optical]
             : <>ECG <span className="fig">{vitals.hrEcg ?? '—'}</span>{vitals.hrEcg !== null && `, ${vitals.rhythmRegular ? 'regular' : 'irregular'}`}</>}
         >
           <Figure value={vitals.hrPpg ?? vitals.hrEcg} />
         </Readout>
         <Readout
           tone="spo2" label="SpO2" unit="%" sim={simulated.optical}
-          sub={vitals.spo2 === null && !vitals.skinContact ? 'No skin contact'
-            : <>Perfusion <span className="fig"><Figure value={vitals.perfusion} digits={1} /></span> %</>}
+          sub={OPTICAL_NOTE[vitals.optical]
+            ?? <>Perfusion <span className="fig"><Figure value={vitals.perfusion} digits={1} /></span> %</>}
         >
           <Figure value={vitals.spo2} />
         </Readout>

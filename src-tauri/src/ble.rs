@@ -143,6 +143,8 @@ impl Ble {
     async fn establish(&self, app: &AppHandle, mode: Mode) -> Result<String, String> {
         let _attempt = self.connecting.lock().await;
         if self.is_connected().await {
+            // the window may have reloaded and forgotten; tell it again
+            emit_status(app, LinkStatus::Connected { name: DEVICE_NAME.into() });
             return Ok(DEVICE_NAME.into());
         }
         let fail = |e: String| {

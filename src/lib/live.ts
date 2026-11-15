@@ -1,6 +1,7 @@
 import type { AlertEvent, CheckIn, Series, Snapshot, Vitals } from '../types';
 import { clock, clockOf, rmssd } from './health';
 import { EVENT_CODE, SENSOR, eventText, type Packet } from './packets';
+import { ecgUsable, opticalQuality, removeMains } from './signal';
 import { deriveSystems } from './systems';
 
 const STEP_MINUTES = 1;
@@ -12,7 +13,7 @@ const SOURCE = ['Wrist', 'Dashboard', 'You'] as const;
 
 const emptyVitals = (): Vitals => ({
   hrPpg: null, hrEcg: null, rhythmRegular: true, spo2: null, perfusion: null, skinTemp: null,
-  skinTempSteadySince: null, activity: null, leadsOff: false, skinContact: false,
+  skinTempSteadySince: null, activity: null, leadsOff: false, skinContact: false, optical: 'noContact', ecgUsable: false,
 });
 
 const minuteOf = (d: Date) => Math.floor(d.getTime() / 60000);
@@ -46,13 +47,17 @@ export class LiveModel {
         this.ecg.push(...p.mv);
         if (this.ecg.length > ECG_KEEP) this.ecg.splice(0, this.ecg.length - ECG_KEEP);
         break;
-      case 'vitals':
+      case 'vitals': {
+        // an optical reading taken while moving or with a weak pulse is noise; never show or act on it
+        const optical = opticalQuality(p);
+        const trusted = optical === 'ok';
         this.vitals = {
-          hrPpg: p.hrPpg, hrEcg: p.hrEcg, spo2: p.spo2, perfusion: p.perfusion, skinTemp: p.skinTemp,
-          activity: p.activity, leadsOff: p.leadsOff, skinContact: p.skinContact,
-          rhythmRegular: this.vitals.rhythmRegular, skinTempSteadySince: null,
+          hrPpg: trusted ? p.hrPpg : null, hrEcg: p.hrEcg, spo2: trusted ? p.spo2 : null, perfusion: p.perfusion,
+          skinTemp: p.skinTemp, activity: p.activity, leadsOff: p.leadsOff, skinContact: p.skinContact,
+          rhythmRegular: this.vitals.rhythmRegular, skinTempSteadySince: null, optical, ecgUsable: this.vitals.ecgUsable,
         };
         break;
+      }
       case 'rr': {
         const bucket = this.hrvByMinute.get(minute) ?? [];
         for (const ms of p.intervalsMs) {
@@ -133,12 +138,14 @@ export class LiveModel {
     if (a) a.resolution = `Handled ${clockOf(at)}`;
   }
 
+  // for drawing: mains hum filtered out, the heartbeat kept
   ecgSamples(): number[] {
-    return this.ecg;
+    return removeMains(this.ecg);
   }
 
   snapshot(base: { crew: Snapshot['crew']; checkIn: CheckIn }, now = new Date()): Snapshot {
     const nowMinute = minuteOf(now);
+    const vitals: Vitals = { ...this.vitals, ecgUsable: ecgUsable(this.ecg) };
     const first = Math.max(this.firstMinute ?? nowMinute, nowMinute - KEEP_MINUTES + 1);
     const minutes = Array.from({ length: nowMinute - first + 1 }, (_, i) => first + i);
 
@@ -165,7 +172,7 @@ export class LiveModel {
       demoMode: this.demo,
       seriesStart: clock(startDate.getUTCHours() * 60 + startDate.getUTCMinutes()),
       seriesStepMinutes: STEP_MINUTES,
-      vitals: this.vitals,
+      vitals,
       battery: { percent: this.batteryPct, hoursLeft: null, simulated: this.batterySimulated },
       simulated: { optical: !!(sim & SENSOR.max30102), co2: !!(sim & SENSOR.scd41), pressure: !!(sim & SENSOR.bmp180) },
       hrvBaseline,
@@ -183,7 +190,7 @@ export class LiveModel {
         humidity: this.air?.humidity ?? null,
       },
       systems: deriveSystems({
-        vitals: this.vitals, hrvNow, hrvBaseline,
+        vitals, hrvNow, hrvBaseline,
         stressActive: this.stressFrom !== null, activeCodes: this.activeCodes,
       }),
       alerts: this.alerts.map((a) => ({ ...a })),
