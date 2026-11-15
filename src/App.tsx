@@ -3,6 +3,7 @@ import { Rail } from './components/Rail';
 import { Overview } from './pages/Overview';
 import { sample } from './data/sample';
 import { toMinutes } from './lib/health';
+import { useTelemetry } from './lib/useTelemetry';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -16,14 +17,15 @@ function useClock(start: string) {
 }
 
 export default function App() {
-  // demo clock runs on from the sample's time until the wrist station supplies real time
+  const telemetry = useTelemetry();
+  // the sample screen keeps its own clock running; live data carries the laptop's time
   const now = useClock(sample.now);
-  const openAlerts = sample.alerts.filter((a) => a.resolution === null).length;
+  const openAlerts = telemetry.data.alerts.filter((a) => a.resolution === null).length;
 
   return (
     <div className="app">
       <Rail openAlerts={openAlerts} />
-      <Overview data={sample} now={now} />
+      <Overview telemetry={telemetry} now={now} />
     </div>
   );
 }

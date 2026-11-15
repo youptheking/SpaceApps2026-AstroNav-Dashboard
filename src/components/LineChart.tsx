@@ -1,21 +1,34 @@
+import type { Series } from '../types';
 import { useWidth } from './useWidth';
 
 interface Props {
   label: string;
   times: string[];
-  values: number[];
+  values: Series;
   yTicks: number[];
   height: number;
   colour?: string;
   tick?: (v: number) => string;
-  xLabelEvery?: number;
+  xLabels?: number;
   reference?: { value: number; label: string };
   annotation?: { index: number; label: string };
 }
 
 const PAD_BOTTOM = 26;
 
-export function LineChart({ label, times, values, yTicks, height, colour = 'var(--chart-1)', tick = String, xLabelEvery = 6, reference, annotation }: Props) {
+// a straight-segment line; a null value breaks the line instead of inventing one
+function pathOf(values: Series, x: (i: number) => number, y: (v: number) => number): string {
+  let d = '';
+  let pen = false;
+  values.forEach((v, i) => {
+    if (v === null) { pen = false; return; }
+    d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
+    pen = true;
+  });
+  return d;
+}
+
+export function LineChart({ label, times, values, yTicks, height, colour = 'var(--chart-1)', tick = String, xLabels = 7, reference, annotation }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const padTop = annotation ? 20 : 6;
   const padLeft = 28;
@@ -25,7 +38,8 @@ export function LineChart({ label, times, values, yTicks, height, colour = 'var(
   const plotH = height - padTop - PAD_BOTTOM;
   const x = (i: number) => padLeft + (i * plotW) / Math.max(1, values.length - 1);
   const y = (v: number) => padTop + plotH - ((Math.min(Math.max(v, lo), hi) - lo) / (hi - lo)) * plotH;
-  const path = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const every = Math.max(1, Math.ceil(times.length / xLabels));
+  const single = values.filter((v) => v !== null).length === 1 ? values.findIndex((v) => v !== null) : -1;
 
   return (
     <div ref={ref} className="line-chart" style={{ height }}>
@@ -37,8 +51,8 @@ export function LineChart({ label, times, values, yTicks, height, colour = 'var(
               <text x={padLeft - 8} y={y(t)} dy="0.32em" textAnchor="end" className="axis">{tick(t)}</text>
             </g>
           ))}
-          {times.map((t, i) => (i % xLabelEvery === 0 ? (
-            <text key={t} x={x(i)} y={height - 8} textAnchor={i === 0 ? 'start' : 'middle'} className="axis">{t}</text>
+          {times.map((t, i) => (i % every === 0 ? (
+            <text key={`${t}-${i}`} x={x(i)} y={height - 8} textAnchor={i === 0 ? 'start' : 'middle'} className="axis">{t}</text>
           ) : null))}
           {reference && (
             <g>
@@ -52,7 +66,8 @@ export function LineChart({ label, times, values, yTicks, height, colour = 'var(
               <text x={x(annotation.index) + 6} y={padTop - 8} className="axis">{annotation.label}</text>
             </g>
           )}
-          <path d={path} fill="none" stroke={colour} strokeWidth={2} strokeLinejoin="round" />
+          <path d={pathOf(values, x, y)} fill="none" stroke={colour} strokeWidth={2} strokeLinejoin="round" />
+          {single >= 0 && <circle cx={x(single)} cy={y(values[single]!)} r={2.5} fill={colour} />}
         </svg>
       )}
     </div>

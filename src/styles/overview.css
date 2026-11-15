@@ -110,3 +110,8 @@
   .checkin .cells > div { border-right: 0; padding: 12px 0; }
   .log .by-cell { display: none; }
 }
+
+.empty {
+  margin: 8px 0 0; padding: 10px 12px; border: 1px dashed var(--control); border-radius: 6px;
+  color: var(--muted); font-size: 12px;
+}

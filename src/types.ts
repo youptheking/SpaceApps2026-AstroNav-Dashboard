@@ -1,5 +1,8 @@
 export type Status = 'ok' | 'watch' | 'alert';
 
+// null in a series means no reading in that interval
+export type Series = (number | null)[];
+
 export interface Vitals {
   hrPpg: number | null;
   hrEcg: number | null;
@@ -8,6 +11,9 @@ export interface Vitals {
   perfusion: number | null;
   skinTemp: number | null;
   skinTempSteadySince: string | null;
+  activity: number | null;
+  leadsOff: boolean;
+  skinContact: boolean;
 }
 
 export interface Battery {
@@ -17,13 +23,22 @@ export interface Battery {
 }
 
 export interface CabinAir {
-  // ppCO2 in mmHg, one sample per 10 minutes
-  ppco2: number[];
+  // ppCO2 in mmHg, one value per series step
+  ppco2: Series;
+  ppco2Now: number | null;
+  ppco2Hour: number | null;
   co2Ppm: number | null;
   pressureKpa: number | null;
   pressureTrendPaMin: number | null;
   tempC: number | null;
   humidity: number | null;
+}
+
+// which values the watch filled in itself in demo mode
+export interface Simulated {
+  optical: boolean;
+  co2: boolean;
+  pressure: boolean;
 }
 
 export interface BodySystem {
@@ -37,6 +52,8 @@ export interface BodySystem {
 }
 
 export interface AlertEvent {
+  id: string;
+  code: number | null;
   time: string;
   text: string;
   severity: 'info' | 'warning' | 'alarm';
@@ -61,17 +78,20 @@ export interface CheckIn {
 }
 
 export interface Snapshot {
+  source: 'sample' | 'live';
   crew: { name: string; role: string; location: string };
   now: string;
   demoMode: boolean;
-  connected: boolean;
-  deviceName: string;
-  // samples are every 10 minutes from this time of day
+  // series start at this time of day and step by this many minutes
   seriesStart: string;
+  seriesStepMinutes: number;
   vitals: Vitals;
   battery: Battery;
-  hrvBaseline: number;
-  hrv: number[];
+  simulated: Simulated;
+  hrvBaseline: number | null;
+  hrv: Series;
+  // RMSSD over the last minute of beats
+  hrvNow: number | null;
   stressFrom: string | null;
   cabin: CabinAir;
   systems: BodySystem[];

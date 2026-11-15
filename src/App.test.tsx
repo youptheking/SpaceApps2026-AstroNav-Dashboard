@@ -15,9 +15,13 @@ test('selecting a body system shows its explanation', () => {
   expect(screen.getByText(/blood shifts towards the head/)).toBeInTheDocument();
 });
 
-test('the breathing exercise can be sent once', () => {
+test('the breathing exercise can be sent once', async () => {
   render(<App />);
-  const send = screen.getByRole('button', { name: 'Start on wrist' });
-  fireEvent.click(send);
-  expect(screen.getByRole('button', { name: 'Sent to wrist' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Start on wrist' }));
+  expect(await screen.findByRole('button', { name: 'Sent to wrist' })).toBeDisabled();
+});
+
+test('without a watch the screen says it shows sample data', () => {
+  render(<App />);
+  expect(screen.getByText('Sample data')).toBeInTheDocument();
 });
