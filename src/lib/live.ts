@@ -163,7 +163,7 @@ export class LiveModel {
       crew: base.crew,
       now: clockOf(now, true),
       demoMode: this.demo,
-      seriesStart: clock(startDate.getHours() * 60 + startDate.getMinutes()),
+      seriesStart: clock(startDate.getUTCHours() * 60 + startDate.getUTCMinutes()),
       seriesStepMinutes: STEP_MINUTES,
       vitals: this.vitals,
       battery: { percent: this.batteryPct, hoursLeft: null, simulated: this.batterySimulated },

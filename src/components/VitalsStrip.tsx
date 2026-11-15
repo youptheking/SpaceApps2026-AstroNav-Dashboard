@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react';
 import type { Battery, Simulated, Vitals } from '../types';
 import { percentFromBaseline, signed } from '../lib/health';
 import { EcgTrace } from './EcgTrace';
 import { Figure } from './Figure';
+import { Panel } from './Panel';
 
 interface Props {
   vitals: Vitals;
@@ -10,51 +12,83 @@ interface Props {
   hrvNow: number | null;
   hrvBaseline: number | null;
   ecgSamples: (() => number[]) | null;
+  onLeads: () => void;
 }
 
-const Sim = () => <span className="pill sim">Simulated</span>;
+const Sim = () => <span className="pill sim" title="Simulated by the watch in demo mode">Sim</span>;
 
-export function VitalsStrip({ vitals, battery, simulated, hrvNow, hrvBaseline, ecgSamples }: Props) {
+interface ReadoutProps {
+  tone: string;
+  label: string;
+  unit: string;
+  sim?: boolean;
+  sub: ReactNode;
+  children: ReactNode;
+}
+
+function Readout({ tone, label, unit, sim, sub, children }: ReadoutProps) {
+  return (
+    <div className={`readout ${tone}`}>
+      <div className="readout-head"><span>{label}</span>{sim ? <Sim /> : <span className="unit">{unit}</span>}</div>
+      <div className="readout-value fig">{children}</div>
+      <div className="readout-sub">{sub}</div>
+    </div>
+  );
+}
+
+export function VitalsStrip({ vitals, battery, simulated, hrvNow, hrvBaseline, ecgSamples, onLeads }: Props) {
   const drop = hrvNow !== null && hrvBaseline !== null ? percentFromBaseline(hrvNow, hrvBaseline) : null;
   const ecgBpm = vitals.hrEcg ?? vitals.hrPpg;
 
   return (
-    <section className="card vitals" aria-label="Vital signs, now">
-      <div className="vital heart">
-        <div>
-          <div className="label">Heart rate {simulated.optical && <Sim />}</div>
-          <div className="value fig"><Figure value={vitals.hrPpg ?? vitals.hrEcg} unit="bpm" /></div>
-          <div className="sub">
-            {vitals.leadsOff ? 'ECG electrode loose' : <>ECG <span className="fig">{vitals.hrEcg ?? '—'}</span>{vitals.hrEcg !== null && ` · rhythm ${vitals.rhythmRegular ? 'regular' : 'irregular'}`}</>}
-          </div>
-        </div>
-        {ecgBpm !== null && !vitals.leadsOff && <EcgTrace bpm={ecgBpm} samples={ecgSamples} />}
+    <Panel
+      title="Vitals"
+      className="vitals"
+      more="Electrodes"
+      onMore={onLeads}
+    >
+      <div className="ecg-strip">
+        <span className="strip-label">ECG &middot; 1 lead</span>
+        {ecgBpm !== null && !vitals.leadsOff
+          ? <EcgTrace bpm={ecgBpm} samples={ecgSamples} />
+          : <button className="leads-off" onClick={onLeads}>{vitals.leadsOff ? 'Leads off. Show where the electrodes go' : 'No ECG signal'}</button>}
       </div>
-      <div className="vital">
-        <div className="label">Blood oxygen {simulated.optical && <Sim />}</div>
-        <div className="value fig"><Figure value={vitals.spo2} unit="% SpO2" /></div>
-        <div className="sub">
-          {vitals.spo2 === null && !vitals.skinContact ? 'No skin contact' : <>Perfusion <span className="fig"><Figure value={vitals.perfusion} digits={1} /> %</span></>}
-        </div>
+      <div className="readouts">
+        <Readout
+          tone="hr" label="Heart rate" unit="bpm" sim={simulated.optical}
+          sub={vitals.leadsOff ? 'ECG electrode loose'
+            : <>ECG <span className="fig">{vitals.hrEcg ?? '—'}</span>{vitals.hrEcg !== null && `, ${vitals.rhythmRegular ? 'regular' : 'irregular'}`}</>}
+        >
+          <Figure value={vitals.hrPpg ?? vitals.hrEcg} />
+        </Readout>
+        <Readout
+          tone="spo2" label="SpO2" unit="%" sim={simulated.optical}
+          sub={vitals.spo2 === null && !vitals.skinContact ? 'No skin contact'
+            : <>Perfusion <span className="fig"><Figure value={vitals.perfusion} digits={1} /></span> %</>}
+        >
+          <Figure value={vitals.spo2} />
+        </Readout>
+        <Readout
+          tone={drop !== null && drop <= -20 ? 'hrv low' : 'hrv'} label="HRV" unit="ms"
+          sub={hrvBaseline === null ? 'Learning baseline, about 5 min'
+            : <><span className="fig">{drop !== null ? `${signed(drop)} %` : '—'}</span> vs baseline <span className="fig">{hrvBaseline}</span></>}
+        >
+          <Figure value={hrvNow} />
+        </Readout>
+        <Readout
+          tone="plain" label="Skin temp" unit="°C" sim={simulated.optical}
+          sub={vitals.skinTempSteadySince ? <>Steady since <span className="fig">{vitals.skinTempSteadySince}</span></> : 'Trend, not core'}
+        >
+          <Figure value={vitals.skinTemp} digits={1} />
+        </Readout>
+        <Readout
+          tone="plain" label="Battery" unit="%" sim={battery.simulated}
+          sub={battery.percent === null ? 'Running on USB'
+            : battery.hoursLeft !== null ? <>About <span className="fig">{battery.hoursLeft}</span> h left</> : 'Charge level'}
+        >
+          <Figure value={battery.percent} />
+        </Readout>
       </div>
-      <div className="vital">
-        <div className="label">Heart rate variability</div>
-        <div className="value fig"><Figure value={hrvNow} unit="ms" /></div>
-        <div className="sub">
-          {hrvBaseline === null ? 'Learning your baseline, about 5 min'
-            : <>{drop !== null && <span className={`fig${drop <= -20 ? ' watch-text' : ''}`}>{signed(drop)} %</span>} vs your baseline <span className="fig">{hrvBaseline} ms</span></>}
-        </div>
-      </div>
-      <div className="vital">
-        <div className="label">Skin temperature {simulated.optical && <Sim />}</div>
-        <div className="value fig"><Figure value={vitals.skinTemp} unit="°C" digits={1} /></div>
-        <div className="sub">{vitals.skinTempSteadySince ? `Steady since ${vitals.skinTempSteadySince}` : 'Trend, not core temperature'}</div>
-      </div>
-      <div className="vital">
-        <div className="label">Wrist battery {battery.simulated && <Sim />}</div>
-        <div className="value fig"><Figure value={battery.percent} unit="%" /></div>
-        <div className="sub">{battery.percent === null ? 'Running on USB' : battery.hoursLeft !== null ? `About ${battery.hoursLeft} h left` : 'Charge level'}</div>
-      </div>
-    </section>
+    </Panel>
   );
 }

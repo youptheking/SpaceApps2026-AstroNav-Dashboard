@@ -6,7 +6,8 @@ interface Props {
   times: string[];
   values: Series;
   yTicks: number[];
-  height: number;
+  // without a height the chart fills its container
+  height?: number;
   colour?: string;
   tick?: (v: number) => string;
   xLabels?: number;
@@ -28,8 +29,9 @@ function pathOf(values: Series, x: (i: number) => number, y: (v: number) => numb
   return d;
 }
 
-export function LineChart({ label, times, values, yTicks, height, colour = 'var(--chart-1)', tick = String, xLabels = 7, reference, annotation }: Props) {
-  const [ref, width] = useWidth<HTMLDivElement>();
+export function LineChart({ label, times, values, yTicks, height: fixed, colour = 'var(--chart-1)', tick = String, xLabels = 7, reference, annotation }: Props) {
+  const [ref, width, measured] = useWidth<HTMLDivElement>();
+  const height = fixed ?? measured;
   const padTop = annotation ? 20 : 6;
   const padLeft = 28;
   const lo = yTicks[0] ?? 0;
@@ -42,8 +44,8 @@ export function LineChart({ label, times, values, yTicks, height, colour = 'var(
   const single = values.filter((v) => v !== null).length === 1 ? values.findIndex((v) => v !== null) : -1;
 
   return (
-    <div ref={ref} className="line-chart" style={{ height }}>
-      {width > 0 && (
+    <div ref={ref} className={`line-chart${fixed ? '' : ' fill'}`} style={fixed ? { height: fixed } : undefined}>
+      {width > 0 && height > 40 && (
         <svg width={width} height={height} role="img" aria-label={label}>
           {yTicks.map((t) => (
             <g key={t}>

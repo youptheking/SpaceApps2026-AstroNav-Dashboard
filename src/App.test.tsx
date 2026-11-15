@@ -1,18 +1,28 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import App from './App';
 
-test('shows the overview with the finding first', () => {
+test('the caution and warning row lights the open stress alert', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { level: 1, name: 'Health overview' })).toBeInTheDocument();
-  expect(screen.getByText(/Stress has been rising since 10:40/)).toBeInTheDocument();
+  const cw = screen.getByRole('navigation', { name: 'Caution and warning' });
+  expect(within(cw).getByText('1 caution')).toBeInTheDocument();
+  expect(within(cw).getByRole('button', { name: 'Stress' })).toHaveClass('lamp', 'caution');
 });
 
-test('selecting a body system shows its explanation', () => {
+test('a body system opens its explanation in a popup', () => {
   render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: /^Heart/ }));
-  expect(screen.getByRole('heading', { level: 3, name: 'Heart' })).toBeInTheDocument();
-  expect(screen.getByText(/blood shifts towards the head/)).toBeInTheDocument();
+  const body = screen.getByRole('region', { name: 'Body systems' });
+  fireEvent.click(within(body).getByRole('button', { name: /^Heart/ }));
+  const popup = screen.getByRole('dialog', { name: 'Heart' });
+  expect(within(popup).getByText(/blood shifts towards the head/)).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('the event log opens from a lamp', () => {
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: 'Stress' }));
+  expect(screen.getByRole('dialog', { name: 'Event log, today' })).toBeInTheDocument();
 });
 
 test('the breathing exercise can be sent once', async () => {

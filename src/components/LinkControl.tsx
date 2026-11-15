@@ -1,31 +1,58 @@
-import type { Telemetry } from '../lib/useTelemetry';
+import { useState } from 'react';
+import { rememberedCode, type Telemetry } from '../lib/useTelemetry';
 
-// Connection to the watch, and whether what is on screen is real.
-export function LinkControl({ telemetry, clock }: { telemetry: Telemetry; clock: string }) {
-  const { link, data, error, connect, disconnect } = telemetry;
+// Contents of the link window: unlock the watch with the code on its screen, or let go of it.
+export function LinkControl({ telemetry }: { telemetry: Telemetry }) {
+  const { link, error, connect, disconnect } = telemetry;
+  const [code, setCode] = useState(rememberedCode);
   const busy = link.state === 'scanning' || link.state === 'connecting';
+  const validCode = /^\d{6}$/.test(code);
+
+  if (link.state === 'unavailable') {
+    return (
+      <p className="popup-text">
+        This is the browser preview. Bluetooth only works in the desktop app, so the console shows sample data.
+      </p>
+    );
+  }
+
+  if (link.state === 'connected') {
+    return (
+      <div className="link-pop">
+        <p className="popup-text"><span className="dot ok" /> Connected to <b>{link.name}</b>. Data on the console is live.</p>
+        <button className="btn" onClick={disconnect}>Disconnect</button>
+      </div>
+    );
+  }
 
   return (
-    <div className="link-block">
-      <div className="link">
-        {data.source === 'sample' && <span className="pill" title="Example values, not from a watch">Sample data</span>}
-        {data.source === 'live' && data.demoMode && (
-          <span className="pill sim" title="The watch fills in values it cannot measure; those are marked Simulated">Demo mode</span>
-        )}
-        <span className="conn">
-          <span className={`dot ${link.state === 'connected' ? 'ok' : busy ? 'watch' : 'info'}`} />
-          {link.state === 'connected' && link.name}
-          {link.state === 'scanning' && 'Looking for the watch'}
-          {link.state === 'connecting' && `Connecting to ${link.name}`}
-          {link.state === 'disconnected' && 'Not connected'}
-          {link.state === 'unavailable' && 'Preview, no Bluetooth'}
-          <span className="fig">{clock}</span>
-        </span>
-        {link.state === 'connected' && <button className="btn" onClick={disconnect}>Disconnect</button>}
-        {(link.state === 'disconnected' || busy) && (
-          <button className="btn primary" onClick={connect} disabled={busy}>{busy ? 'Connecting' : 'Connect watch'}</button>
-        )}
-      </div>
+    <div className="link-pop">
+      <p className="popup-text">
+        Switch the watch on. It shows a 6-digit code on its screen. Type it here; the laptop remembers it for next time.
+      </p>
+      <form
+        className="unlock"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (validCode && !busy) connect(code);
+        }}
+      >
+        <label htmlFor="unlock-code">Code on the watch</label>
+        <input
+          id="unlock-code"
+          className="fig"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={6}
+          placeholder="000000"
+          value={code}
+          disabled={busy}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+        />
+        <button className="btn primary" type="submit" disabled={!validCode || busy}>
+          {link.state === 'scanning' ? 'Searching' : link.state === 'connecting' ? 'Unlocking' : 'Connect watch'}
+        </button>
+      </form>
       {error && <p className="link-error" role="alert">{error}</p>}
     </div>
   );

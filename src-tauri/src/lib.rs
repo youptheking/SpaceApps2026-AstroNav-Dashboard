@@ -10,9 +10,10 @@ fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+/// Connects and unlocks the watch with the 6-digit code from its screen.
 #[tauri::command]
-async fn ble_connect(app: AppHandle, ble: State<'_, Ble>) -> Result<String, String> {
-    ble.connect(app).await
+async fn ble_connect(app: AppHandle, ble: State<'_, Ble>, code: u32) -> Result<String, String> {
+    ble.connect(app, code).await
 }
 
 #[tauri::command]

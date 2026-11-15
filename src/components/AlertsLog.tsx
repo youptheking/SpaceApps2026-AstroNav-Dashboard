@@ -1,51 +1,70 @@
-import { useState } from 'react';
 import type { AlertEvent } from '../types';
-
-const dot = { info: 'info', warning: 'watch', alarm: 'alert' } as const;
+import { cwClass } from './Annunciators';
+import { Panel } from './Panel';
 
 interface Props {
   alerts: AlertEvent[];
-  onHandled: (id: string, code: number | null) => void;
+  handled: Set<string>;
 }
 
-export function AlertsLog({ alerts, onHandled }: Props) {
-  // handled here right away, so the row changes before the next update from the watch
-  const [handled, setHandled] = useState<Set<string>>(new Set());
-  const rows = alerts.slice(0, 6);
+const stateOf = (a: AlertEvent, handled: Set<string>) =>
+  a.resolution !== null ? a.resolution : handled.has(a.id) ? 'Handled' : null;
+
+// the last few events on the console; the full log is in a popup
+export function EventLog({ alerts, handled, onMore }: Props & { onMore: () => void }) {
+  const rows = alerts.slice(0, 5);
+  const open = alerts.filter((a) => stateOf(a, handled) === null).length;
 
   return (
-    <section className="card log" aria-labelledby="log-title">
-      <div className="card-head">
-        <h2 id="log-title">Alerts today</h2>
-        <span className="muted">{alerts.length === 0 ? 'None yet' : `${alerts.length} in total`}</span>
-      </div>
+    <Panel title="Events" className="log" meta={open ? `${open} open` : `${alerts.length} today`} more="All events" onMore={onMore}>
       {rows.length === 0 ? (
-        <p className="empty">No alerts since connecting. The watch raises them on its own, also without this laptop.</p>
+        <p className="empty">No events since connecting. The watch raises them on its own, also without this laptop.</p>
       ) : (
-        <table>
-          <thead>
-            <tr><th>Time</th><th>Event</th><th className="by-cell">Raised by</th><th>State</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((a) => (
-              <tr key={a.id}>
-                <td className="time fig">{a.time}</td>
-                <td><span className="event"><span className={`dot ${dot[a.severity]}`} />{a.text}</span></td>
-                <td className="by-cell muted">{a.raisedBy}</td>
-                <td>
-                  {a.resolution !== null ? <span className="muted">{a.resolution}</span>
-                    : handled.has(a.id) ? <span className="muted">Handled</span>
-                    : (
-                      <button className="textbtn" onClick={() => { setHandled(new Set(handled).add(a.id)); onHandled(a.id, a.code); }}>
-                        Mark handled
-                      </button>
-                    )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ol className="events">
+          {rows.map((a) => {
+            const state = stateOf(a, handled);
+            return (
+              <li key={a.id} className={state === null ? 'open' : ''}>
+                <span className="fig time">{a.time}</span>
+                <span className={`tag ${a.code === null ? 'note' : cwClass(a)}`}>{a.code === null ? 'Note' : cwClass(a)}</span>
+                <span className="text">{a.text}</span>
+                <span className="state">{state === null ? 'Open' : state || '—'}</span>
+              </li>
+            );
+          })}
+        </ol>
       )}
-    </section>
+    </Panel>
+  );
+}
+
+export function AlertsLog({ alerts, handled, onHandled }: Props & { onHandled: (id: string, code: number | null) => void }) {
+  if (alerts.length === 0) {
+    return <p className="empty">No events since connecting. The watch raises them on its own, also without this laptop.</p>;
+  }
+  return (
+    <table className="log-table">
+      <thead>
+        <tr><th>Time</th><th>Class</th><th>Event</th><th>Raised by</th><th>State</th></tr>
+      </thead>
+      <tbody>
+        {alerts.map((a) => {
+          const state = stateOf(a, handled);
+          return (
+            <tr key={a.id}>
+              <td className="fig muted">{a.time}</td>
+              <td><span className={`tag ${a.code === null ? 'note' : cwClass(a)}`}>{a.code === null ? 'Note' : cwClass(a)}</span></td>
+              <td>{a.text}</td>
+              <td className="muted">{a.raisedBy}</td>
+              <td>
+                {state !== null ? <span className="muted">{state || '—'}</span> : (
+                  <button className="btn small" onClick={() => onHandled(a.id, a.code)}>Mark handled</button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

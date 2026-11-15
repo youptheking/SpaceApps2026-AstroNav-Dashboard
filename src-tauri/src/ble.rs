@@ -3,9 +3,11 @@ use btleplug::api::{Central, Characteristic, Manager as _, Peripheral as _, Scan
 use btleplug::platform::{Manager, Peripheral};
 use futures::StreamExt;
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
-use tokio::sync::Mutex;
+use tokio::sync::{oneshot, Mutex};
 use uuid::{uuid, Uuid};
 
 pub const DEVICE_NAME: &str = "AstroNav-Wrist";
@@ -15,6 +17,8 @@ const CHAR_EVENTS: Uuid = uuid!("631cd0ae-17e9-48b0-beec-431b6a4ca732");
 const CHAR_CONTROL: Uuid = uuid!("4419bc3d-3bfd-40d1-8da1-6bcae37219b5");
 
 const SCAN_TIMEOUT: Duration = Duration::from_secs(12);
+// the watch answers a good code within a second; a bit of slack for the radio
+const UNLOCK_TIMEOUT: Duration = Duration::from_millis(1500);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
@@ -28,6 +32,7 @@ pub enum LinkStatus {
 struct Link {
     peripheral: Peripheral,
     control: Characteristic,
+    closing: Arc<AtomicBool>,
 }
 
 #[derive(Default)]
@@ -75,7 +80,7 @@ async fn find_wrist(app: &AppHandle) -> Result<Peripheral, String> {
 }
 
 impl Ble {
-    pub async fn connect(&self, app: AppHandle) -> Result<String, String> {
+    pub async fn connect(&self, app: AppHandle, code: u32) -> Result<String, String> {
         let mut link = self.link.lock().await;
         if let Some(l) = link.as_ref() {
             if l.peripheral.is_connected().await.unwrap_or(false) {
@@ -92,7 +97,22 @@ impl Ble {
         };
         emit_status(&app, LinkStatus::Connecting { name: DEVICE_NAME.into() });
 
-        let result = async {
+        // set before we close the link ourselves, so the stream does not report it as lost
+        let closing = Arc::new(AtomicBool::new(false));
+        let fail = |e: String| {
+            let peripheral = peripheral.clone();
+            let app = app.clone();
+            let closing = closing.clone();
+            async move {
+                closing.store(true, Ordering::SeqCst);
+                let _ = peripheral.disconnect().await;
+                emit_status(&app, LinkStatus::Disconnected { reason: Some(e.clone()) });
+                Err::<String, String>(e)
+            }
+        };
+
+        // no OS pairing: the link is open, and the app unlocks the watch with the code from its screen
+        let control = match async {
             peripheral.connect().await.map_err(|e| format!("Could not connect: {e}"))?;
             peripheral.discover_services().await.map_err(|e| e.to_string())?;
             let chars = peripheral.characteristics();
@@ -100,50 +120,61 @@ impl Ble {
             let data = find(CHAR_DATA).ok_or("The watch has no data characteristic")?;
             let events = find(CHAR_EVENTS).ok_or("The watch has no events characteristic")?;
             let control = find(CHAR_CONTROL).ok_or("The watch has no control characteristic")?;
-            // all characteristics need an encrypted, paired link; Windows asks for the code from the OLED
-            peripheral
-                .subscribe(&data)
-                .await
-                .map_err(|e| format!("Subscribing failed. Pair the watch in Windows Bluetooth settings first, with the code on its screen. ({e})"))?;
-            peripheral.subscribe(&events).await.map_err(|e| e.to_string())?;
+            peripheral.subscribe(&data).await.map_err(|e| format!("Could not listen to the watch: {e}"))?;
+            peripheral.subscribe(&events).await.map_err(|e| format!("Could not listen to the watch: {e}"))?;
             Ok::<_, String>(control)
         }
-        .await;
-
-        let control = match result {
+        .await
+        {
             Ok(c) => c,
-            Err(e) => {
-                let _ = peripheral.disconnect().await;
-                emit_status(&app, LinkStatus::Disconnected { reason: Some(e.clone()) });
-                return Err(e);
-            }
+            Err(e) => return fail(e).await,
         };
 
-        let mut notifications = peripheral.notifications().await.map_err(|e| e.to_string())?;
+        let mut notifications = match peripheral.notifications().await {
+            Ok(n) => n,
+            Err(e) => return fail(e.to_string()).await,
+        };
+        let (unlocked_tx, unlocked_rx) = oneshot::channel::<()>();
         let stream_app = app.clone();
+        let stream_closing = closing.clone();
         tauri::async_runtime::spawn(async move {
+            let mut unlocked_tx = Some(unlocked_tx);
             while let Some(n) = notifications.next().await {
                 match protocol::parse(&n.value) {
                     Ok(packet) => {
+                        // the watch sends nothing until unlocked, then STATUS and SIM right away
+                        if let Some(tx) = unlocked_tx.take() {
+                            let _ = tx.send(());
+                        }
                         let _ = stream_app.emit("telemetry", &packet);
                     }
                     Err(e) => eprintln!("skipped packet: {e}"),
                 }
             }
-            emit_status(&stream_app, LinkStatus::Disconnected { reason: Some("The connection to the watch was lost.".into()) });
+            if !stream_closing.load(Ordering::SeqCst) {
+                emit_status(&stream_app, LinkStatus::Disconnected { reason: Some("The connection to the watch was lost.".into()) });
+            }
         });
+
+        if let Err(e) = peripheral.write(&control, &protocol::control::unlock(code), WriteType::WithResponse).await {
+            return fail(format!("Could not send the code: {e}")).await;
+        }
+        if tokio::time::timeout(UNLOCK_TIMEOUT, unlocked_rx).await.is_err() {
+            return fail("Wrong code. Type the 6 digits shown on the watch.".into()).await;
+        }
 
         // the watch keeps its history with real timestamps once it knows the time
         let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as u32).unwrap_or(0);
         let _ = peripheral.write(&control, &protocol::control::set_time(unix), WriteType::WithResponse).await;
 
-        *link = Some(Link { peripheral, control });
+        *link = Some(Link { peripheral, control, closing });
         emit_status(&app, LinkStatus::Connected { name: DEVICE_NAME.into() });
         Ok(DEVICE_NAME.into())
     }
 
     pub async fn disconnect(&self, app: AppHandle) -> Result<(), String> {
         if let Some(l) = self.link.lock().await.take() {
+            l.closing.store(true, Ordering::SeqCst);
             l.peripheral.disconnect().await.map_err(|e| e.to_string())?;
         }
         emit_status(&app, LinkStatus::Disconnected { reason: None });
