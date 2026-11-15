@@ -5,7 +5,7 @@ use futures::{Stream, StreamExt};
 use serde::Serialize;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::SeqCst};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::SeqCst};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager as _};
 use tokio::sync::Mutex;
@@ -18,11 +18,15 @@ const CHAR_EVENTS: Uuid = uuid!("631cd0ae-17e9-48b0-beec-431b6a4ca732");
 const CHAR_CONTROL: Uuid = uuid!("4419bc3d-3bfd-40d1-8da1-6bcae37219b5");
 
 const SCAN_TIMEOUT: Duration = Duration::from_secs(12);
+// the watch answers a good code within a second; a bit of slack for the radio
+const UNLOCK_TIMEOUT: Duration = Duration::from_millis(1500);
 /// The watch streams many packets a second; this long without one means something is wrong.
 const SILENCE: Duration = Duration::from_secs(4);
 /// After this many silent periods in a row the link counts as lost, even if Windows still says connected.
 const SILENT_PERIODS_LOST: u32 = 3;
 const RETRY_MAX_WAIT: Duration = Duration::from_secs(5);
+/// How often the log line with the packet rate is written while connected.
+const RATE_LOG_EVERY: Duration = Duration::from_secs(10);
 
 /// Returned when the user pressed Disconnect while a connection was being set up.
 pub const CANCELLED: &str = "Connection cancelled.";
@@ -43,7 +47,6 @@ pub enum LinkStatus {
 struct Link {
     peripheral: Peripheral,
     control: Characteristic,
-    closing: Arc<AtomicBool>,
 }
 
 #[derive(Default)]
@@ -55,6 +58,8 @@ pub struct Ble {
     wanted: AtomicBool,
     /// Bumped for every new link and on Disconnect. A watcher from an older session stays quiet when its stream ends.
     session: AtomicU64,
+    /// The unlock code the user typed, kept so an automatic reconnect can unlock the watch again.
+    code: AtomicU32,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -67,6 +72,15 @@ enum Mode {
 
 fn emit_status(app: &AppHandle, status: LinkStatus) {
     let _ = app.emit("ble-status", status);
+}
+
+fn forward(app: &AppHandle, value: &[u8]) {
+    match protocol::parse(value) {
+        Ok(packet) => {
+            let _ = app.emit("telemetry", &packet);
+        }
+        Err(e) => eprintln!("[ble] skipped packet: {e}"),
+    }
 }
 
 async fn find_wrist(app: &AppHandle, mode: Mode, wanted: &AtomicBool) -> Result<Peripheral, String> {
@@ -111,7 +125,8 @@ async fn find_wrist(app: &AppHandle, mode: Mode, wanted: &AtomicBool) -> Result<
 }
 
 impl Ble {
-    pub async fn connect(&self, app: AppHandle) -> Result<String, String> {
+    pub async fn connect(&self, app: AppHandle, code: u32) -> Result<String, String> {
+        self.code.store(code, SeqCst);
         self.wanted.store(true, SeqCst);
         self.establish(&app, Mode::User).await
     }
@@ -131,6 +146,7 @@ impl Ble {
             return Ok(DEVICE_NAME.into());
         }
         let fail = |e: String| {
+            eprintln!("[ble] connect failed: {e}");
             // a cancel is the user's own doing, and a retry failure is shown as "Reconnecting"
             if mode == Mode::User && e != CANCELLED {
                 emit_status(app, LinkStatus::Disconnected { reason: Some(e.clone()) });
@@ -146,22 +162,9 @@ impl Ble {
             emit_status(app, LinkStatus::Connecting { name: DEVICE_NAME.into() });
         }
 
-        // set before we close the link ourselves, so the stream does not report it as lost
-        let closing = Arc::new(AtomicBool::new(false));
-        let fail = |e: String| {
-            let peripheral = peripheral.clone();
-            let app = app.clone();
-            let closing = closing.clone();
-            async move {
-                closing.store(true, Ordering::SeqCst);
-                let _ = peripheral.disconnect().await;
-                emit_status(&app, LinkStatus::Disconnected { reason: Some(e.clone()) });
-                Err::<String, String>(e)
-            }
-        };
-
         // no OS pairing: the link is open, and the app unlocks the watch with the code from its screen
-        let control = match async {
+        let code = self.code.load(SeqCst);
+        let result = async {
             peripheral.connect().await.map_err(|e| format!("Could not connect: {e}"))?;
             peripheral.discover_services().await.map_err(|e| e.to_string())?;
             let chars = peripheral.characteristics();
@@ -169,27 +172,36 @@ impl Ble {
             let data = find(CHAR_DATA).ok_or("The watch has no data characteristic")?;
             let events = find(CHAR_EVENTS).ok_or("The watch has no events characteristic")?;
             let control = find(CHAR_CONTROL).ok_or("The watch has no control characteristic")?;
-            // all characteristics need an encrypted, paired link; Windows asks for the code from the OLED
+            peripheral.subscribe(&data).await.map_err(|e| format!("Could not listen to the watch: {e}"))?;
+            peripheral.subscribe(&events).await.map_err(|e| format!("Could not listen to the watch: {e}"))?;
+            let mut notifications = peripheral.notifications().await.map_err(|e| e.to_string())?;
+
             peripheral
-                .subscribe(&data)
+                .write(&control, &protocol::control::unlock(code), WriteType::WithResponse)
                 .await
-                .map_err(|e| format!("Subscribing failed. Pair the watch in Windows Bluetooth settings first, with the code on its screen. ({e})"))?;
-            peripheral.subscribe(&events).await.map_err(|e| e.to_string())?;
-            let notifications = peripheral.notifications().await.map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Could not send the code: {e}"))?;
+            // the watch sends nothing until unlocked, then STATUS and SIM right away
+            let first = match tokio::time::timeout(UNLOCK_TIMEOUT, notifications.next()).await {
+                Ok(Some(n)) => n,
+                Ok(None) => return Err(LOST.to_string()),
+                Err(_) => return Err("Wrong code. Type the 6 digits shown on the watch.".to_string()),
+            };
             if !self.wanted.load(SeqCst) {
                 return Err(CANCELLED.to_string());
             }
-            Ok::<_, String>((control, notifications))
+            Ok::<_, String>((control, notifications, first))
         }
         .await;
 
-        let (control, notifications) = match result {
+        let (control, notifications, first) = match result {
             Ok(r) => r,
             Err(e) => {
                 let _ = peripheral.disconnect().await;
                 return fail(e);
             }
         };
+        forward(app, &first.value);
+
         // the watch keeps its history with real timestamps once it knows the time
         let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as u32).unwrap_or(0);
         let _ = peripheral.write(&control, &protocol::control::set_time(unix), WriteType::WithResponse).await;
@@ -197,6 +209,7 @@ impl Ble {
         let id = self.session.fetch_add(1, SeqCst) + 1;
         *self.link.lock().await = Some(Link { peripheral: peripheral.clone(), control });
         spawn_watch(app.clone(), peripheral, notifications, id);
+        eprintln!("[ble] connected and unlocked (session {id})");
         emit_status(app, LinkStatus::Connected { name: DEVICE_NAME.into() });
         Ok(DEVICE_NAME.into())
     }
@@ -207,6 +220,7 @@ impl Ble {
         self.session.fetch_add(1, SeqCst);
         let link = self.link.lock().await.take();
         emit_status(&app, LinkStatus::Disconnected { reason: None });
+        eprintln!("[ble] disconnected by the user");
         if let Some(l) = link {
             l.peripheral.disconnect().await.map_err(|e| e.to_string())?;
         }
@@ -231,25 +245,30 @@ impl Ble {
 fn spawn_watch(app: AppHandle, peripheral: Peripheral, mut notifications: Notifications, id: u64) {
     tauri::async_runtime::spawn(async move {
         let mut silent = 0;
+        let mut count: u64 = 0;
+        let mut rate_from = tokio::time::Instant::now();
         loop {
             match tokio::time::timeout(SILENCE, notifications.next()).await {
                 Ok(Some(n)) => {
                     silent = 0;
-                    match protocol::parse(&n.value) {
-                        Ok(packet) => {
-                            let _ = app.emit("telemetry", &packet);
-                        }
-                        Err(e) => eprintln!("skipped packet: {e}"),
-                    }
+                    count += 1;
+                    forward(&app, &n.value);
                 }
                 Ok(None) => break,
                 // Windows does not always end the stream when the watch walks away, so check by hand
                 Err(_) => {
                     silent += 1;
+                    eprintln!("[ble] no packets for {}s", SILENCE.as_secs() * silent as u64);
                     if silent >= SILENT_PERIODS_LOST || !peripheral.is_connected().await.unwrap_or(false) {
                         break;
                     }
                 }
+            }
+            let elapsed = rate_from.elapsed();
+            if elapsed >= RATE_LOG_EVERY {
+                eprintln!("[ble] {count} packets in {}s ({:.1}/s)", elapsed.as_secs(), count as f64 / elapsed.as_secs_f64());
+                count = 0;
+                rate_from = tokio::time::Instant::now();
             }
         }
 
@@ -257,6 +276,7 @@ fn spawn_watch(app: AppHandle, peripheral: Peripheral, mut notifications: Notifi
         if ble.session.load(SeqCst) != id || !ble.wanted.load(SeqCst) {
             return; // the user disconnected, or a newer link took over
         }
+        eprintln!("[ble] link lost (session {id}), reconnecting");
         {
             let mut link = ble.link.lock().await;
             if ble.session.load(SeqCst) == id {
@@ -280,7 +300,7 @@ async fn reconnect(app: &AppHandle, ble: &Ble, lost: u64) {
         let next: Pin<Box<dyn Future<Output = Result<String, String>> + Send + '_>> = Box::pin(ble.establish(app, Mode::Retry));
         match next.await {
             Ok(_) => return,
-            Err(e) => eprintln!("reconnect attempt {attempt} failed: {e}"),
+            Err(e) => eprintln!("[ble] reconnect attempt {attempt} failed: {e}"),
         }
         tokio::time::sleep(RETRY_MAX_WAIT.min(Duration::from_secs(attempt as u64))).await;
     }

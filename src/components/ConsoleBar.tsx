@@ -15,14 +15,16 @@ const linkText = (link: LinkStatus) => {
     case 'connected': return link.name;
     case 'scanning': return 'Searching';
     case 'connecting': return 'Unlocking';
+    case 'reconnecting': return 'Signal lost, reconnecting';
     case 'disconnected': return 'No link';
     case 'unavailable': return 'Preview, no Bluetooth';
   }
 };
 
 export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink }: Props) {
-  const busy = link.state === 'scanning' || link.state === 'connecting';
-  const live = link.state === 'connected';
+  const busy = link.state === 'scanning' || link.state === 'connecting' || link.state === 'reconnecting';
+  // a dropout is still the real watch's session; the pretend one stays off
+  const live = link.state === 'connected' || link.state === 'reconnecting';
 
   return (
     <header className="bar">
@@ -50,7 +52,7 @@ export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink }: Props) {
         </button>
         <span className="clock"><span className="k">GMT</span> <span className="fig">{gmt}</span></span>
         <button className="link-chip" onClick={onLink} title="Connect or disconnect the watch">
-          <span className={`dot ${live ? 'ok' : busy ? 'watch' : 'info'}`} />
+          <span className={`dot ${link.state === 'connected' ? 'ok' : busy ? 'watch' : 'info'}`} />
           <span className="k">Watch</span>
           {linkText(link)}
         </button>

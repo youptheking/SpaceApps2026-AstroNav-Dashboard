@@ -53,7 +53,7 @@ export function useTelemetry(): Telemetry {
   // a short dropout keeps the history and the screen; only a new session starts from zero
   const session = live || link.state === 'reconnecting';
   // the real watch wins over the pretend one
-  const demo = demoWanted && !live;
+  const demo = demoWanted && !session;
 
   const showError = useCallback((e: unknown) => {
     const msg = String(e);
@@ -85,24 +85,30 @@ export function useTelemetry(): Telemetry {
     return () => clearInterval(id);
   }, [demo]);
 
+  // a new watch session starts from zero; a reconnect within the session keeps the history
+  useEffect(() => {
+    if (session) model.current = new LiveModel();
+  }, [session]);
+
   // packets arrive ~40 times a second; the screen redraws a few times a second
   useEffect(() => {
     if (!session && !demo) {
       setData(sample);
       return;
     }
-    if (live) model.current = new LiveModel();
     const id = setInterval(() => {
       if (model.current.packets === 0) return;
       const snap = model.current.snapshot({ crew: sample.crew, checkIn: sample.checkIn });
       setData(demo ? { ...snap, source: 'demo' } : snap);
     }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [session, live, demo]);
+  }, [session, demo]);
 
   const connect = useCallback((code: string) => {
     setError(null);
-    invoke<string>('ble_connect').catch(showError);
+    invoke<string>('ble_connect', { code: Number(code) })
+      .then(() => rememberCode(code))
+      .catch(showError);
   }, [showError]);
 
   const disconnect = useCallback(() => {
