@@ -4,6 +4,7 @@ import type { Telemetry } from '../lib/useTelemetry';
 export function LinkControl({ telemetry, clock }: { telemetry: Telemetry; clock: string }) {
   const { link, data, error, connect, disconnect } = telemetry;
   const busy = link.state === 'scanning' || link.state === 'connecting';
+  const reconnecting = link.state === 'reconnecting';
 
   return (
     <div className="link-block">
@@ -12,19 +13,22 @@ export function LinkControl({ telemetry, clock }: { telemetry: Telemetry; clock:
         {data.source === 'live' && data.demoMode && (
           <span className="pill sim" title="The watch fills in values it cannot measure; those are marked Simulated">Demo mode</span>
         )}
+        {reconnecting && (
+          <span className="pill" title={`${link.reason} The values on screen are the last ones received.`}>Signal lost</span>
+        )}
         <span className="conn">
-          <span className={`dot ${link.state === 'connected' ? 'ok' : busy ? 'watch' : 'info'}`} />
+          <span className={`dot ${link.state === 'connected' ? 'ok' : busy || reconnecting ? 'watch' : 'info'}`} />
           {link.state === 'connected' && link.name}
           {link.state === 'scanning' && 'Looking for the watch'}
           {link.state === 'connecting' && `Connecting to ${link.name}`}
+          {reconnecting && `Reconnecting${link.attempt > 1 ? `, attempt ${link.attempt}` : ''}`}
           {link.state === 'disconnected' && 'Not connected'}
           {link.state === 'unavailable' && 'Preview, no Bluetooth'}
           <span className="fig">{clock}</span>
         </span>
         {link.state === 'connected' && <button className="btn" onClick={disconnect}>Disconnect</button>}
-        {(link.state === 'disconnected' || busy) && (
-          <button className="btn primary" onClick={connect} disabled={busy}>{busy ? 'Connecting' : 'Connect watch'}</button>
-        )}
+        {(busy || reconnecting) && <button className="btn" onClick={disconnect}>Cancel</button>}
+        {link.state === 'disconnected' && <button className="btn primary" onClick={connect}>Connect watch</button>}
       </div>
       {error && <p className="link-error" role="alert">{error}</p>}
     </div>
