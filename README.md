@@ -69,7 +69,7 @@ Wrist station (ESP32-S3)  --BLE-->  Rust backend (Tauri)  -->  React console
 
 ## Try it on Windows
 
-Download **`AstroNav Dashboard_0.1.0_x64-setup.exe`** from the [latest release](https://github.com/youptheking/SpaceApps2026-AstroNav-Dashboard/releases/latest) and run it. No watch? Turn on **Demo** in the top bar and the console plays a five minute scenario on simulated data.
+Download **`AstroNav.Dashboard_0.1.0_x64-setup.exe`** from the [latest release](https://github.com/youptheking/SpaceApps2026-AstroNav-Dashboard/releases/latest) and run it. No watch? Turn on **Demo** in the top bar and the console plays a five minute scenario on simulated data.
 
 The installer is not code signed, so Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 
