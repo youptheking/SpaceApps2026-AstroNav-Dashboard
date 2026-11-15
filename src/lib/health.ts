@@ -53,10 +53,11 @@ export function sampleTimes(start: string, count: number, stepMinutes: number): 
   return Array.from({ length: count }, (_, i) => clock(first + i * stepMinutes));
 }
 
+// station time: everything on the console is in GMT, like on board
 export function clockOf(date: Date, seconds = false): string {
   const p = (n: number) => String(n).padStart(2, '0');
-  const hm = `${p(date.getHours())}:${p(date.getMinutes())}`;
-  return seconds ? `${hm}:${p(date.getSeconds())}` : hm;
+  const hm = `${p(date.getUTCHours())}:${p(date.getUTCMinutes())}`;
+  return seconds ? `${hm}:${p(date.getUTCSeconds())}` : hm;
 }
 
 export function signed(value: number): string {

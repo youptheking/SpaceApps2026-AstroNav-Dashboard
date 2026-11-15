@@ -43,6 +43,7 @@ pub enum LinkStatus {
 struct Link {
     peripheral: Peripheral,
     control: Characteristic,
+    closing: Arc<AtomicBool>,
 }
 
 #[derive(Default)]
@@ -145,7 +146,22 @@ impl Ble {
             emit_status(app, LinkStatus::Connecting { name: DEVICE_NAME.into() });
         }
 
-        let result = async {
+        // set before we close the link ourselves, so the stream does not report it as lost
+        let closing = Arc::new(AtomicBool::new(false));
+        let fail = |e: String| {
+            let peripheral = peripheral.clone();
+            let app = app.clone();
+            let closing = closing.clone();
+            async move {
+                closing.store(true, Ordering::SeqCst);
+                let _ = peripheral.disconnect().await;
+                emit_status(&app, LinkStatus::Disconnected { reason: Some(e.clone()) });
+                Err::<String, String>(e)
+            }
+        };
+
+        // no OS pairing: the link is open, and the app unlocks the watch with the code from its screen
+        let control = match async {
             peripheral.connect().await.map_err(|e| format!("Could not connect: {e}"))?;
             peripheral.discover_services().await.map_err(|e| e.to_string())?;
             let chars = peripheral.characteristics();
@@ -174,7 +190,6 @@ impl Ble {
                 return fail(e);
             }
         };
-
         // the watch keeps its history with real timestamps once it knows the time
         let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as u32).unwrap_or(0);
         let _ = peripheral.write(&control, &protocol::control::set_time(unix), WriteType::WithResponse).await;

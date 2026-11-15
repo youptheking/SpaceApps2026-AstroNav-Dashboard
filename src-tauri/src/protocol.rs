@@ -262,6 +262,12 @@ pub mod control {
     pub fn alert(code: u8, severity: u8, message_id: u8) -> Vec<u8> {
         vec![0x04, code, severity, message_id]
     }
+    /// Must be the first command after connecting; the code is shown on the watch's screen.
+    pub fn unlock(code: u32) -> Vec<u8> {
+        let mut v = vec![0x13];
+        v.extend_from_slice(&code.to_le_bytes());
+        v
+    }
     pub fn set_time(unix: u32) -> Vec<u8> {
         let mut v = vec![0x11];
         v.extend_from_slice(&unix.to_le_bytes());
@@ -388,5 +394,10 @@ mod tests {
     #[test]
     fn control_set_time_is_little_endian() {
         assert_eq!(control::set_time(0x01020304), vec![0x11, 4, 3, 2, 1]);
+    }
+
+    #[test]
+    fn unlock_matches_the_documented_example() {
+        assert_eq!(control::unlock(873320), vec![0x13, 0x68, 0x53, 0x0D, 0x00]);
     }
 }

@@ -1,43 +1,95 @@
-import type { Snapshot } from '../types';
+import { useCallback, useEffect, useState } from 'react';
+import type { BodySystem } from '../types';
 import type { Telemetry } from '../lib/useTelemetry';
 import { adviceFor } from '../lib/advice';
-import { PPCO2_LIMIT, sampleTimes } from '../lib/health';
-import { AlertsLog } from '../components/AlertsLog';
-import { BodyMap } from '../components/BodyMap';
-import { CabinAir } from '../components/CabinAir';
-import { CheckIn } from '../components/CheckIn';
+import { sampleTimes } from '../lib/health';
+import { AlertsLog, EventLog } from '../components/AlertsLog';
+import { Annunciators } from '../components/Annunciators';
+import { CrewStatus, EcgSetup, SystemDetail } from '../components/BodyMap';
+import { CabinAir, CabinDetail } from '../components/CabinAir';
+import { CheckIn, CheckInBar } from '../components/CheckIn';
+import { ConsoleBar } from '../components/ConsoleBar';
+import { HrvChart, HrvDetail } from '../components/HrvTrend';
 import { LinkControl } from '../components/LinkControl';
 import { NextStep } from '../components/NextStep';
+import { Panel } from '../components/Panel';
+import { Popup } from '../components/Popup';
 import { VitalsStrip } from '../components/VitalsStrip';
 
-function finding(s: Snapshot): React.ReactNode {
-  const avg = s.cabin.ppco2Hour;
-  const co2 = avg === null ? '' : avg <= PPCO2_LIMIT ? ' cabin CO2 is under the NASA limit.' : ' cabin CO2 is above the NASA limit.';
-  const open = s.alerts.filter((a) => a.resolution === null && a.severity !== 'info' && a.code !== 10);
-  if (s.stressFrom) {
-    return <><strong>Stress has been rising since {s.stressFrom}.</strong> {open.length ? `${open.length} other alert${open.length > 1 ? 's' : ''} open, and` : 'Everything else is in range, and'}{co2}</>;
-  }
-  if (open[0]) return <><strong>{open[0].text}.</strong>{co2 && ` Also,${co2}`}</>;
-  return <>Everything is in range{co2 ? `, and${co2}` : '.'}</>;
-}
+type Pop =
+  | { kind: 'link' }
+  | { kind: 'system'; id: BodySystem['id'] }
+  | { kind: 'ecg' }
+  | { kind: 'hrv' }
+  | { kind: 'cabin' }
+  | { kind: 'log' }
+  | { kind: 'checkin' };
 
-export function Overview({ telemetry, now }: { telemetry: Telemetry; now: string }) {
-  const { data } = telemetry;
+export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string }) {
+  const { data, link } = telemetry;
+  const [pop, setPop] = useState<Pop | null>(null);
+  // handled here right away, so the row changes before the next update from the watch
+  const [handled, setHandled] = useState<Set<string>>(new Set());
+  const close = useCallback(() => setPop(null), []);
   const times = sampleTimes(data.seriesStart, data.hrv.length, data.seriesStepMinutes);
-  const clock = data.source === 'live' ? data.now : now;
+  const linkLost = link.state === 'disconnected' && telemetry.error !== null;
+
+  // the link window has done its job once the watch is unlocked
+  useEffect(() => {
+    if (link.state === 'connected') setPop((p) => (p?.kind === 'link' ? null : p));
+  }, [link.state]);
+
+  const markHandled = (id: string, code: number | null) => {
+    setHandled((h) => new Set(h).add(id));
+    telemetry.markHandled(id, code);
+  };
+
+  const popup = (p: Pop) => {
+    switch (p.kind) {
+      case 'link':
+        return <Popup title="Wrist station link" onClose={close}><LinkControl telemetry={telemetry} /></Popup>;
+      case 'system': {
+        const s = data.systems.find((x) => x.id === p.id);
+        return <Popup title={s?.name ?? 'Body system'} onClose={close}><SystemDetail systems={data.systems} id={p.id} /></Popup>;
+      }
+      case 'ecg':
+        return <Popup title="ECG electrode placement" onClose={close}><EcgSetup leadsOff={data.vitals.leadsOff} /></Popup>;
+      case 'hrv':
+        return (
+          <Popup title="Heart rate variability" onClose={close} wide>
+            <HrvDetail times={times} hrv={data.hrv} baseline={data.hrvBaseline} stressFrom={data.stressFrom} />
+          </Popup>
+        );
+      case 'cabin':
+        return (
+          <Popup title="Cabin air" onClose={close} wide>
+            <CabinDetail cabin={data.cabin} simulated={data.simulated} times={times} />
+          </Popup>
+        );
+      case 'log':
+        return (
+          <Popup title="Event log, today" onClose={close} wide>
+            <AlertsLog alerts={data.alerts} handled={handled} onHandled={markHandled} />
+          </Popup>
+        );
+      case 'checkin':
+        return <Popup title="Daily check-in" onClose={close}><CheckIn data={data.checkIn} /></Popup>;
+    }
+  };
 
   return (
-    <main className="canvas">
-      <header className="head">
-        <div>
-          <p className="scope">{data.crew.name} · {data.crew.role} · {data.crew.location}</p>
-          <h1>Health overview</h1>
-          <p className="finding">{finding(data)}</p>
-        </div>
-        <LinkControl telemetry={telemetry} clock={clock} />
-      </header>
+    <div className="console">
+      <ConsoleBar
+        data={data}
+        link={link}
+        gmt={gmt}
+        demo={telemetry.demo}
+        onDemo={telemetry.setDemo}
+        onLink={() => setPop({ kind: 'link' })}
+      />
+      <Annunciators alerts={data.alerts} vitals={data.vitals} link={link} linkLost={linkLost} onOpen={() => setPop({ kind: 'log' })} />
 
-      <div className="grid">
+      <main className="deck">
         <VitalsStrip
           vitals={data.vitals}
           battery={data.battery}
@@ -45,20 +97,30 @@ export function Overview({ telemetry, now }: { telemetry: Telemetry; now: string
           hrvNow={data.hrvNow}
           hrvBaseline={data.hrvBaseline}
           ecgSamples={telemetry.ecgSamples}
+          onLeads={() => setPop({ kind: 'ecg' })}
         />
-        <BodyMap systems={data.systems} leadsOff={data.vitals.leadsOff} />
-        <NextStep
-          advice={adviceFor(data)}
-          times={times}
-          hrv={data.hrv}
-          baseline={data.hrvBaseline}
-          stressFrom={data.stressFrom}
-          onSend={telemetry.sendAlert}
+        <CrewStatus
+          systems={data.systems}
+          leadsOff={data.vitals.leadsOff}
+          onSystem={(id) => setPop({ kind: 'system', id })}
+          onLeads={() => setPop({ kind: 'ecg' })}
         />
-        <CabinAir cabin={data.cabin} simulated={data.simulated} times={times} now={clock} />
-        <AlertsLog alerts={data.alerts} onHandled={telemetry.markHandled} />
-        <CheckIn data={data.checkIn} />
-      </div>
-    </main>
+        <CabinAir cabin={data.cabin} simulated={data.simulated} onMore={() => setPop({ kind: 'cabin' })} />
+        <NextStep advice={adviceFor(data)} onSend={telemetry.sendAlert} />
+        <Panel
+          title="HRV today"
+          className="hrv-panel"
+          meta={data.hrvBaseline !== null ? `baseline ${data.hrvBaseline} ms` : 'Since connecting'}
+          more="More"
+          onMore={() => setPop({ kind: 'hrv' })}
+        >
+          <HrvChart times={times} hrv={data.hrv} baseline={data.hrvBaseline} stressFrom={data.stressFrom} xLabels={5} />
+        </Panel>
+        <EventLog alerts={data.alerts} handled={handled} onMore={() => setPop({ kind: 'log' })} />
+      </main>
+
+      <CheckInBar data={data.checkIn} onOpen={() => setPop({ kind: 'checkin' })} />
+      {pop && popup(pop)}
+    </div>
   );
 }

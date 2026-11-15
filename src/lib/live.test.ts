@@ -5,7 +5,7 @@ import { sample } from '../data/sample';
 
 const header = { seq: 1, tMs: 0 };
 const base = { crew: sample.crew, checkIn: sample.checkIn };
-const at = (min: number, sec = 0) => new Date(2026, 10, 15, 14, min, sec);
+const at = (min: number, sec = 0) => new Date(Date.UTC(2026, 10, 15, 14, min, sec));
 
 const event = (code: number, active: boolean, severity = 1, value = 0, source = 0): Packet =>
   ({ kind: 'event', header, code, active, severity, value, source });

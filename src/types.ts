@@ -78,7 +78,7 @@ export interface CheckIn {
 }
 
 export interface Snapshot {
-  source: 'sample' | 'live';
+  source: 'sample' | 'live' | 'demo';
   crew: { name: string; role: string; location: string };
   now: string;
   demoMode: boolean;

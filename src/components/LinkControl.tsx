@@ -1,8 +1,10 @@
-import type { Telemetry } from '../lib/useTelemetry';
+import { useState } from 'react';
+import { rememberedCode, type Telemetry } from '../lib/useTelemetry';
 
-// Connection to the watch, and whether what is on screen is real.
-export function LinkControl({ telemetry, clock }: { telemetry: Telemetry; clock: string }) {
-  const { link, data, error, connect, disconnect } = telemetry;
+// Contents of the link window: unlock the watch with the code on its screen, or let go of it.
+export function LinkControl({ telemetry }: { telemetry: Telemetry }) {
+  const { link, error, connect, disconnect } = telemetry;
+  const [code, setCode] = useState(rememberedCode);
   const busy = link.state === 'scanning' || link.state === 'connecting';
   const reconnecting = link.state === 'reconnecting';
 

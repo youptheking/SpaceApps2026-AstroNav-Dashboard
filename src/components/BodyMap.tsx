@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import type { BodySystem } from '../types';
+import { Panel } from './Panel';
 
 // where each system sits on the 150x300 figure; the wrist is where the station is worn
 const spots: Record<BodySystem['id'], [number, number]> = {
@@ -30,97 +30,110 @@ function Silhouette() {
   );
 }
 
-type View = 'status' | 'ecg';
+function Spots({ systems, selected, onPick }: { systems: BodySystem[]; selected?: string; onPick?: (id: BodySystem['id']) => void }) {
+  return (
+    <>
+      {systems.map((s) => {
+        const [cx, cy] = spots[s.id];
+        return (
+          <g key={s.id} className={`hit${s.id === selected ? ' on' : ''}`} onClick={() => onPick?.(s.id)}>
+            <circle className="ring" cx={cx} cy={cy} r="9" />
+            <circle cx={cx} cy={cy} r="4" fill={colour[s.status]} />
+          </g>
+        );
+      })}
+    </>
+  );
+}
 
-export function BodyMap({ systems, leadsOff }: { systems: BodySystem[]; leadsOff: boolean }) {
-  const firstConcern = systems.find((s) => s.status !== 'ok') ?? systems[0];
-  const [selected, setSelected] = useState(firstConcern?.id);
-  const [view, setView] = useState<View>('status');
-  const current = systems.find((s) => s.id === selected);
+interface StatusProps {
+  systems: BodySystem[];
+  leadsOff: boolean;
+  onSystem: (id: BodySystem['id']) => void;
+  onLeads: () => void;
+}
 
-  // a loose electrode is the moment someone needs the placement guide
-  useEffect(() => {
-    if (leadsOff) setView('ecg');
-  }, [leadsOff]);
+export function CrewStatus({ systems, leadsOff, onSystem, onLeads }: StatusProps) {
+  const concerns = systems.filter((s) => s.status !== 'ok').length;
 
   return (
-    <section className="card body-card" aria-labelledby="body-title">
-      <div className="card-head">
-        <h2 id="body-title">Body</h2>
-        <div className="range" role="group" aria-label="View">
-          <button aria-pressed={view === 'status'} onClick={() => setView('status')}>Status</button>
-          <button aria-pressed={view === 'ecg'} onClick={() => setView('ecg')}>
-            ECG setup{leadsOff && <span className="dot watch tab-dot" aria-label="electrode loose" />}
+    <Panel title="Body systems" className="body" meta={concerns ? `${concerns} to watch` : 'All nominal'}>
+      <svg className="figure" viewBox="0 0 150 300" aria-hidden="true">
+        <Silhouette />
+        <Spots systems={systems} onPick={onSystem} />
+      </svg>
+      <ul className="systems">
+        {systems.map((s) => (
+          <li key={s.id}>
+            <button onClick={() => onSystem(s.id)}>
+              <span className={`dot ${s.status}`} />
+              <span className="name">{s.name}</span>
+              <span className="state">{s.state}</span>
+            </button>
+          </li>
+        ))}
+        <li>
+          <button onClick={onLeads}>
+            <span className={`dot ${leadsOff ? 'watch' : 'info'}`} />
+            <span className="name">ECG electrodes</span>
+            <span className="state">{leadsOff ? 'One is loose' : 'Where they go'}</span>
           </button>
-        </div>
-      </div>
+        </li>
+      </ul>
+    </Panel>
+  );
+}
 
-      {view === 'status' ? (
-        <>
-          <svg className="figure" viewBox="0 0 150 300" aria-hidden="true">
-            <Silhouette />
-            {systems.map((s) => {
-              const [cx, cy] = spots[s.id];
-              return (
-                <g key={s.id} className={`hit${s.id === selected ? ' on' : ''}`} onClick={() => setSelected(s.id)}>
-                  <circle className="ring" cx={cx} cy={cy} r="9" />
-                  <circle cx={cx} cy={cy} r="4" fill={colour[s.status]} />
-                </g>
-              );
-            })}
-          </svg>
-          <ul className="systems">
-            {systems.map((s) => (
-              <li key={s.id}>
-                <button aria-pressed={s.id === selected} onClick={() => setSelected(s.id)}>
-                  <span className={`dot ${s.status}`} />
-                  <span className="name">{s.name}</span>
-                  <span className="state">{s.state}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {current && (
-            <div className="explain" aria-live="polite">
-              <h3>{current.name}</h3>
-              <p>{current.what}</p>
-              <p><b>In space.</b> {current.inSpace}</p>
-              <p><b>When to act.</b> {current.whenToAct}</p>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <svg className="figure" viewBox="0 0 150 300" role="img" aria-label="Chest with the heart and the three ECG electrodes">
-            <Silhouette />
-            <path className="heart-shape" transform="translate(85 101) scale(1.9) translate(-86 -102)" d="M86 111c-7-4.5-10.5-8-10.5-12a3.8 3.8 0 0 1 10.5-2.2 3.8 3.8 0 0 1 10.5 2.2c0 4-3.5 7.5-10.5 12z" />
-            {electrodes.map((e) => (
-              <g key={e.lead}>
-                <circle cx={e.x} cy={e.y} r="6" fill={e.colour} />
-                <circle cx={e.x} cy={e.y} r="2" fill="#131217" />
-              </g>
-            ))}
-          </svg>
-          <div className="ecg-setup">
-            <ul className="leads">
-              {electrodes.map((e) => (
-                <li key={e.lead}>
-                  <span className="lead-dot" style={{ background: e.colour }} />
-                  <span><b>{e.lead}</b><span className="where">{e.where}</span></span>
-                </li>
-              ))}
-            </ul>
-            <p className={`lead-state${leadsOff ? ' watch-text' : ''}`}>
-              {leadsOff ? 'An electrode is loose. Press it down or replace the sticker.' : 'All three electrodes are on.'}
-            </p>
-          </div>
-          <div className="explain">
-            <h3>Why on the chest</h3>
-            <p>The three electrodes pick up the heart&rsquo;s electrical signal. That gives the heart rhythm and the beat-to-beat timing the dashboard uses for HRV and stress.</p>
-            <p><b>Tip.</b> Clean, dry skin and fresh stickers give the cleanest trace. The heart sits slightly left of the middle, so the yellow lead is on that side.</p>
-          </div>
-        </>
-      )}
-    </section>
+export function SystemDetail({ systems, id }: { systems: BodySystem[]; id: BodySystem['id'] }) {
+  const s = systems.find((x) => x.id === id);
+  if (!s) return null;
+  return (
+    <div className="detail-split">
+      <svg className="figure" viewBox="0 0 150 300" aria-hidden="true">
+        <Silhouette />
+        <Spots systems={systems} selected={id} />
+      </svg>
+      <div className="explain">
+        <p className="status-line"><span className={`dot ${s.status}`} /> {s.state}</p>
+        <p>{s.what}</p>
+        <h3>In space</h3>
+        <p>{s.inSpace}</p>
+        <h3>When to act</h3>
+        <p>{s.whenToAct}</p>
+      </div>
+    </div>
+  );
+}
+
+export function EcgSetup({ leadsOff }: { leadsOff: boolean }) {
+  return (
+    <div className="detail-split">
+      <svg className="figure" viewBox="0 0 150 300" role="img" aria-label="Chest with the heart and the three ECG electrodes">
+        <Silhouette />
+        <path className="heart-shape" transform="translate(85 101) scale(1.9) translate(-86 -102)" d="M86 111c-7-4.5-10.5-8-10.5-12a3.8 3.8 0 0 1 10.5-2.2 3.8 3.8 0 0 1 10.5 2.2c0 4-3.5 7.5-10.5 12z" />
+        {electrodes.map((e) => (
+          <g key={e.lead}>
+            <circle cx={e.x} cy={e.y} r="6" fill={e.colour} />
+            <circle cx={e.x} cy={e.y} r="2" fill="#0b1119" />
+          </g>
+        ))}
+      </svg>
+      <div className="explain">
+        <ul className="leads">
+          {electrodes.map((e) => (
+            <li key={e.lead}>
+              <span className="lead-dot" style={{ background: e.colour }} />
+              <span><b>{e.lead}</b><span className="where">{e.where}</span></span>
+            </li>
+          ))}
+        </ul>
+        <p className={leadsOff ? 'watch-text' : 'muted'}>
+          {leadsOff ? 'An electrode is loose. Press it down or replace the sticker.' : 'All three electrodes are on.'}
+        </p>
+        <h3>Why on the chest</h3>
+        <p>The three electrodes pick up the heart&rsquo;s electrical signal. That gives the heart rhythm and the beat-to-beat timing the console uses for HRV and stress.</p>
+        <p><b>Tip.</b> Clean, dry skin and fresh stickers give the cleanest trace. The heart sits slightly left of the middle, so the yellow lead is on that side.</p>
+      </div>
+    </div>
   );
 }
