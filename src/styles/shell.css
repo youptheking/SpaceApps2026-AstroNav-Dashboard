@@ -1,0 +1,47 @@
+.app { display: grid; grid-template-columns: 56px 1fr; min-height: 100vh; }
+
+.rail {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  border-right: 1px solid var(--border);
+  padding: 16px 0;
+}
+.rail .mark { width: 28px; height: 28px; margin-bottom: 28px; }
+.rail nav { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.rail a { position: relative; display: grid; place-items: center; height: 40px; width: 100%; color: var(--muted); text-decoration: none; }
+.rail a:hover, .rail a[aria-current="page"] { color: var(--text); }
+.rail a[aria-current="page"]::after {
+  content: ""; position: absolute; right: -1px; top: 10px; bottom: 10px; width: 1px; background: var(--accent);
+}
+.rail svg { width: 18px; height: 18px; }
+.rail .bottom { margin-top: auto; }
+.rail .badge {
+  position: absolute; top: 6px; right: 12px; min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 7px; background: var(--warning); color: #171719; font-size: 10px; line-height: 14px; font-weight: 600; text-align: center;
+}
+
+.canvas { padding: 28px var(--pad) 40px; min-width: 0; }
+
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.scope { color: var(--muted); margin: 0 0 4px; }
+h1 { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.finding { margin: 8px 0 0; font-size: 15px; line-height: 22px; color: #d9d9dc; max-width: 64ch; }
+.finding strong { color: var(--text); font-weight: 600; }
+.link { display: flex; align-items: center; gap: 16px; flex: none; padding-top: 4px; }
+.conn { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.conn .fig { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 640px) {
+  .app { grid-template-columns: 1fr; }
+  .rail {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: 56px; z-index: 5;
+    flex-direction: row; padding: 0 8px; background: var(--ground); border-right: 0; border-top: 1px solid var(--border);
+  }
+  .rail .mark, .rail .bottom { display: none; }
+  .rail nav { flex-direction: row; justify-content: space-around; }
+  .rail a { height: 56px; width: 56px; }
+  .rail a[aria-current="page"]::after { top: -1px; bottom: auto; left: 16px; right: 16px; width: auto; height: 1px; }
+  .canvas { padding: 20px 16px 88px; }
+  .head { flex-direction: column; gap: 12px; }
+  h1 { font-size: 22px; }
+}
