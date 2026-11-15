@@ -40,7 +40,7 @@ export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink, crew }: Prop
   return (
     <header className="bar">
       <div className="brand">
-        <Logo src="/logos/youpspace.svg" />
+        <Logo src="/logos/youpspace.png" />
         <span className="name">AstroNav</span>
         <span className="k">YoupSpace</span>
         <span className="sep" aria-hidden="true" />

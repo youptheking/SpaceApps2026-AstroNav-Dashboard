@@ -105,7 +105,7 @@
   .bar-end { margin-left: 0; flex-wrap: wrap; }
 }
 
-.brand .logo { height: 22px; width: auto; display: block; }
+.brand .logo { height: 26px; width: auto; display: block; }
 .brand .sep { width: 1px; height: 18px; background: var(--border-strong); margin: 0 4px; }
 .toggle {
   display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 9px 0 6px; cursor: pointer;
