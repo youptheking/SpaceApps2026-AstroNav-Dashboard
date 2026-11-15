@@ -1,0 +1,33 @@
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  --ground: #0c0f13;
+  --surface: #13171d;
+  --raised: #1b2027;
+  --border: #232931;
+  --border-strong: #303842;
+  --rule: #1c2128;
+  --control: #3a434e;
+  --text: #e4e7eb;
+  --text-soft: #b4bbc4;
+  --muted: #7c8591;
+  --label: #98a1ac;
+  --accent: #6aa7d8;
+  --positive: #4cc38a;
+  --negative: #f2555a;
+  --warning: #f0b232;
+  --advisory: #6aa7d8;
+  /* the colours patient monitors use for these two */
+  --hr: #4cc38a;
+  --spo2: #5bc0de;
+  --hrv: #d6dbe1;
+  --co2: #e4e7eb;
+  --chart-1: #6aa7d8;
+  --grid: #1f252d;
+  --pill-neutral-bg: #222830; --pill-neutral-ink: #aab2bc;
+  --pill-sim-bg: #2a2538; --pill-sim-ink: #c2b8e6;
+  --radius: 3px;
+  --gap: 6px;
+  --font: "Public Sans", system-ui, sans-serif;
+  --figures: "IBM Plex Mono", ui-monospace, monospace;
+}

@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroNav · Health overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --ground: #171719;
+  --surface: #131217;
+  --raised: #212023;
+  --border: #222224;
+  --rule: #1b1a1f;
+  --control: #3a3a3e;
+  --text: #ffffff;
+  --muted: #8a8c92;
+  --accent: #4d8dff;
+  --positive: #44a282;
+  --negative: #e5566f;
+  --warning: #d9a441;
+  --chart-1: #4d8dff;
+  --chart-muted: #5a5c62;
+  --chart-span: .12;
+  --grid: #26252a;
+  --axis-ink: #8a8c92;
+  --ink: #ffffff;
+  --pill-positive-bg: #1b2828; --pill-positive-ink: #5fc39c;
+  --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
+  --pill-warning-bg: #2a2416; --pill-warning-ink: #d9a441;
+  --pill-neutral-bg: #212023; --pill-neutral-ink: #bdbdc0;
+  --radius-card: 6px;
+  --gap: 24px;
+  --pad: 32px;
+  --card-pad: 20px;
+  --font: "Public Sans", Inter, system-ui, sans-serif;
+  --figures: "IBM Plex Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--ground);
+  color: var(--text);
+  font: 13px/20px var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+.fig { font-family: var(--figures); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* shell: 56px rail + fluid canvas. At 1440: 1440 - 56 - 2*32 = 1320 = 12 cols of 88 + 11 gaps of 24 */
+.app { display: grid; grid-template-columns: 56px 1fr; min-height: 100vh; }
+.rail {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  border-right: 1px solid var(--border);
+  padding: 16px 0;
+}
+.mark { width: 28px; height: 28px; margin-bottom: 28px; }
+.rail nav { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.rail a {
+  position: relative; display: grid; place-items: center;
+  height: 40px; color: var(--muted); text-decoration: none;
+}
+.rail a:hover { color: var(--text); }
+.rail a[aria-current="page"] { color: var(--text); }
+.rail a[aria-current="page"]::after {
+  content: ""; position: absolute; right: -1px; top: 10px; bottom: 10px; width: 1px; background: var(--accent);
+}
+.rail a:focus-visible, button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.rail svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.rail .bottom { margin-top: auto; }
+.rail .badge {
+  position: absolute; top: 6px; right: 12px; min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 7px; background: var(--warning); color: #171719; font: 600 10px/14px var(--font); text-align: center;
+}
+
+.canvas { padding: 28px var(--pad) 40px; min-width: 0; }
+
+/* title row */
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.scope { color: var(--muted); margin: 0 0 4px; }
+h1 { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+.finding { margin: 8px 0 0; font-size: 15px; line-height: 22px; color: #d9d9dc; max-width: 64ch; }
+.finding strong { color: var(--text); font-weight: 600; }
+.link { display: flex; align-items: center; gap: 16px; flex: none; padding-top: 4px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dot.ok { background: var(--positive); }
+.dot.watch { background: var(--warning); }
+.dot.alert { background: var(--negative); }
+.conn { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.conn .fig { color: var(--muted); font-size: 12px; }
+.pill {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 500; white-space: nowrap; flex: none;
+  background: var(--pill-neutral-bg); color: var(--pill-neutral-ink);
+}
+.pill.sim { background: #23212c; color: #b9b3d6; }
+.pill.warn { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+.pill.bad { background: var(--pill-negative-bg); color: var(--pill-negative-ink); }
+.pill.good { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+
+/* cards */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: var(--card-pad); min-width: 0; }
+.card h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 0; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.card-head .muted { font-size: 12px; }
+
+/* vitals strip: one container split by rules */
+.vitals { grid-column: 1 / -1; display: grid; grid-template-columns: 2fr repeat(4, 1fr); padding: 0; }
+.vital { padding: 16px var(--card-pad); border-left: 1px solid var(--border); min-width: 0; }
+.vital:first-child { border-left: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 24px; align-items: end; }
+.vital .label { color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+.vital .value { font-family: var(--figures); font-size: 24px; line-height: 32px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.vital .value small { font-family: var(--font); font-size: 13px; color: var(--muted); margin-left: 4px; }
+.vital .sub { color: var(--muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vital .sub .bad { color: var(--warning); }
+#ecg { width: 100%; height: 56px; display: block; }
+
+/* body map */
+.body-card { grid-column: span 4; display: grid; grid-template-columns: 150px 1fr; column-gap: 20px; row-gap: 16px; align-content: start; }
+.body-card .card-head { grid-column: 1 / -1; margin-bottom: 0; }
+.figure { width: 150px; height: 300px; }
+.figure .silhouette { fill: var(--raised); }
+.figure .hit { cursor: pointer; }
+.figure .ring { fill: none; stroke: var(--text); stroke-width: 1; opacity: 0; }
+.figure .hit.on .ring { opacity: 1; }
+.systems { list-style: none; margin: 0; padding: 0; }
+.systems button {
+  width: 100%; display: grid; grid-template-columns: 8px 1fr; column-gap: 10px; align-items: baseline;
+  text-align: left; background: none; border: 0; padding: 8px 0; cursor: pointer; position: relative;
+}
+.systems button .dot { transform: translateY(-1px); }
+.systems button .name { font-weight: 500; justify-self: start; }
+.systems button .state { grid-column: 2; color: var(--muted); font-size: 12px; line-height: 18px; }
+.systems button[aria-pressed="true"] .name { box-shadow: inset 0 -1px 0 var(--accent); }
+.systems button:hover .name { color: #d9e6ff; }
+.explain { grid-column: 1 / -1; border-top: 1px solid var(--rule); padding-top: 14px; }
+.explain h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+.explain p { margin: 0 0 8px; color: #cfcfd3; }
+.explain p:last-child { margin: 0; }
+.explain b { color: var(--text); font-weight: 600; }
+
+/* next step + stress chart */
+.next { grid-column: span 5; display: flex; flex-direction: column; }
+.advice { display: grid; grid-template-columns: 1fr; gap: 6px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+.advice .what { font-size: 18px; line-height: 26px; font-weight: 600; }
+.advice .why { color: #cfcfd3; }
+.actions { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.btn {
+  height: 34px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--control); background: none;
+  cursor: pointer; white-space: nowrap;
+}
+.btn:hover { border-color: #5a5a60; }
+.btn.primary { background: #fff; color: #111; border-color: #fff; font-weight: 600; }
+.btn.primary:hover { background: #e6e6e8; }
+.btn:active { transform: translateY(1px); }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; margin: 16px 0 4px; }
+.chart-head h3 { font-size: 13px; font-weight: 600; margin: 0; }
+.range { display: flex; gap: 14px; }
+.range button { background: none; border: 0; padding: 2px 0; color: var(--muted); cursor: pointer; font-size: 12px; }
+.range button[aria-pressed="true"] { color: var(--text); box-shadow: inset 0 -1px 0 var(--accent); }
+#hrv { height: 250px; }
+#co2-chart { height: 150px; margin-top: 4px; }
+
+/* cabin */
+.cabin { grid-column: span 3; }
+.co2 .value { font-family: var(--figures); font-size: 24px; line-height: 32px; }
+.co2 .value small { font-family: var(--font); font-size: 13px; color: var(--muted); margin-left: 4px; }
+.track { position: relative; height: 8px; border-radius: 4px; background: var(--raised); margin: 14px 0 6px; }
+.track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--chart-1); }
+.track .avg { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #fff; }
+.track .limit { position: absolute; top: -6px; bottom: -6px; width: 1px; background: var(--negative); }
+.scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.kv { list-style: none; margin: 18px 0 0; padding: 0; }
+.kv li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); }
+.kv li span:first-child { color: var(--muted); }
+.kv .fig { white-space: nowrap; }
+.source { margin: 14px 0 0; font-size: 12px; color: var(--muted); }
+
+/* alerts log */
+.log { grid-column: span 7; }
+table { width: 100%; border-collapse: collapse; }
+th { font-weight: 400; font-size: 12px; color: var(--muted); text-align: left; padding: 0 12px 8px 0; }
+td { padding: 0 12px 0 0; height: 42px; border-top: 1px solid var(--rule); vertical-align: middle; }
+td:last-child, th:last-child { padding-right: 0; text-align: right; }
+td.time { font-family: var(--figures); color: var(--muted); width: 64px; }
+td .event { display: flex; align-items: center; gap: 10px; }
+td .by { color: var(--muted); }
+.textbtn { background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 3px; }
+.textbtn:hover { text-decoration-color: var(--text); }
+
+/* check-in */
+.checkin { grid-column: span 5; }
+.cells { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--rule); }
+.cells > div { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.cells > div:nth-child(odd) { padding-right: 16px; border-right: 1px solid var(--rule); }
+.cells > div:nth-child(even) { padding-left: 16px; }
+.cells .label { color: var(--muted); font-size: 12px; }
+.cells .value { font-family: var(--figures); font-size: 18px; line-height: 26px; margin-top: 2px; }
+.cells .value small { font-family: var(--font); font-size: 12px; color: var(--muted); margin-left: 4px; }
+.cells .note { font-size: 12px; color: var(--muted); }
+.cells .note.watch { color: var(--warning); }
+.streak { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+.days { display: flex; gap: 4px; }
+.days span { width: 14px; height: 14px; border-radius: 3px; background: var(--raised); }
+.days span.done { background: var(--positive); }
+.days span.today { background: none; box-shadow: inset 0 0 0 1px var(--positive); }
+
+@media (max-width: 1320px) {
+  .body-card { grid-column: span 6; }
+  .next { grid-column: span 6; }
+  .cabin { grid-column: span 5; }
+  .log { grid-column: span 7; }
+  .checkin { grid-column: span 12; }
+  .checkin .cells { grid-template-columns: repeat(4, 1fr); }
+  .checkin .cells > div { padding: 12px 16px !important; border-right: 1px solid var(--rule); }
+  .checkin .cells > div:first-child { padding-left: 0 !important; }
+  .checkin .cells > div:last-child { border-right: 0; }
+}
+@media (max-width: 1100px) {
+  .vitals { grid-template-columns: repeat(2, 1fr); }
+  .vital:first-child { grid-column: 1 / -1; }
+  .vital { border-top: 1px solid var(--border); }
+  .vital:nth-child(even) { border-left: 0; }
+  .body-card, .next, .cabin, .log { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .app { grid-template-columns: 1fr; }
+  .rail {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: 56px; z-index: 5;
+    flex-direction: row; padding: 0 8px; background: var(--ground); border-right: 0; border-top: 1px solid var(--border);
+  }
+  .rail .mark, .rail .bottom { display: none; }
+  .rail nav { flex-direction: row; justify-content: space-around; }
+  .rail a { height: 56px; width: 56px; }
+  .rail a[aria-current="page"]::after { top: -1px; bottom: auto; left: 16px; right: 16px; width: auto; height: 1px; }
+  .canvas { padding: 20px 16px 88px; }
+  .head { flex-direction: column; gap: 12px; }
+  h1 { font-size: 22px; }
+  .vital:first-child { grid-template-columns: 1fr; }
+  .body-card { grid-template-columns: 110px 1fr; }
+  .figure { width: 110px; height: 220px; }
+  .checkin .cells { grid-template-columns: 1fr 1fr; }
+  .checkin .cells > div { border-right: 0 !important; padding: 12px 0 !important; }
+  .log td.by-cell, .log th.by-cell { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <svg class="mark" viewBox="0 0 28 28" role="img" aria-label="AstroNav">
+      <rect width="28" height="28" rx="6" fill="#4d8dff"/>
+      <path d="M5 15h4.5l2.2-5.5 3.6 10 2.2-4.5H23" fill="none" stroke="#0b1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <nav aria-label="Screens">
+      <a href="#" aria-current="page" title="Overview" aria-label="Overview"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7.5 2.8C19.5 16.4 12 21 12 21z"/></svg></a>
+      <a href="#" title="Live signals" aria-label="Live signals"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></a>
+      <a href="#" title="Trends, 7 days" aria-label="Trends, 7 days"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M7 15l4-4 3 3 5-6"/></svg></a>
+      <a href="#" title="Daily check-in" aria-label="Daily check-in"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4v2h6V4M9 12l2 2 4-4"/></svg></a>
+      <a href="#" title="Alerts, 1 open" aria-label="Alerts, 1 open"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg><span class="badge fig">1</span></a>
+    </nav>
+    <a class="bottom" href="#" title="Wrist station and settings" aria-label="Wrist station and settings"><svg viewBox="0 0 24 24"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3"/></svg></a>
+  </aside>
+
+  <main class="canvas">
+    <header class="head">
+      <div>
+        <p class="scope">L. Verhoef · Flight engineer · ISS, Columbus</p>
+        <h1>Health overview</h1>
+        <p class="finding" id="finding"></p>
+      </div>
+      <div class="link">
+        <span class="pill sim" title="Values marked Simulated are filled in by the wrist station, not measured">Demo mode</span>
+        <span class="conn"><span class="dot ok"></span>AstroNav-Wrist <span class="fig" id="clock">14:32:08</span></span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card vitals" aria-label="Vital signs, now">
+        <div class="vital">
+          <div>
+            <div class="label">Heart rate</div>
+            <div class="value"><span id="hr">72</span><small>bpm</small></div>
+            <div class="sub">ECG <span class="fig">71</span> · rhythm regular</div>
+          </div>
+          <canvas id="ecg" aria-label="ECG, lead from the wrist station, live" role="img"></canvas>
+        </div>
+        <div class="vital">
+          <div class="label">Blood oxygen</div>
+          <div class="value">97<small>% SpO2</small></div>
+          <div class="sub">Perfusion <span class="fig">2.4 %</span></div>
+        </div>
+        <div class="vital">
+          <div class="label">Heart rate variability</div>
+          <div class="value">34<small>ms</small></div>
+          <div class="sub"><span class="bad fig">−31 %</span> vs your baseline <span class="fig">49 ms</span></div>
+        </div>
+        <div class="vital">
+          <div class="label">Skin temperature</div>
+          <div class="value">33.8<small>°C</small></div>
+          <div class="sub">Steady since 08:00</div>
+        </div>
+        <div class="vital">
+          <div class="label">Wrist battery <span class="pill sim">Simulated</span></div>
+          <div class="value">85<small>%</small></div>
+          <div class="sub">About 19 h left</div>
+        </div>
+      </section>
+
+      <section class="card body-card" aria-labelledby="body-title">
+        <div class="card-head"><h2 id="body-title">Body systems</h2><span class="muted">Select one to read more</span></div>
+        <svg class="figure" viewBox="0 0 150 300" aria-hidden="true">
+          <g class="silhouette">
+            <circle cx="75" cy="30" r="20"/>
+            <rect x="67" y="48" width="16" height="14" rx="4"/>
+            <path d="M44 62h62c9 0 15 6 16 15l7 74c1 6-3 10-8 10s-8-4-9-9l-6-56v54l3 28H41l3-28V96l-6 56c-1 5-4 9-9 9s-9-4-8-10l7-74c1-9 7-15 16-15z"/>
+            <path d="M44 183h29l-3 104c0 5-4 8-9 8s-9-3-9-8zM77 183h29l-8 104c0 5-4 8-9 8s-9-3-9-8z"/>
+          </g>
+          <g data-system="nerves" class="hit"><circle class="ring" cx="75" cy="26" r="9"/><circle cx="75" cy="26" r="4" fill="var(--warning)"/></g>
+          <g data-system="lungs" class="hit"><circle class="ring" cx="61" cy="90" r="9"/><circle cx="61" cy="90" r="4" fill="var(--positive)"/></g>
+          <g data-system="heart" class="hit"><circle class="ring" cx="85" cy="100" r="9"/><circle cx="85" cy="100" r="4" fill="var(--positive)"/></g>
+          <g data-system="skin" class="hit"><circle class="ring" cx="126" cy="150" r="9"/><circle cx="126" cy="150" r="4" fill="var(--positive)"/></g>
+          <g data-system="muscle" class="hit"><circle class="ring" cx="60" cy="230" r="9"/><circle cx="60" cy="230" r="4" fill="var(--positive)"/></g>
+        </svg>
+        <ul class="systems" id="systems"></ul>
+        <div class="explain" id="explain" aria-live="polite"></div>
+      </section>
+
+      <section class="card next" aria-labelledby="next-title">
+        <div class="card-head"><h2 id="next-title">Next step</h2><span class="muted">Advice, not a diagnosis</span></div>
+        <div class="advice">
+          <div class="what">Take a 2-minute breathing break</div>
+          <div class="why">Your HRV has dropped for almost four hours while you were at rest, and your skin conductance is up. Slow breathing usually brings HRV back within 15 minutes.</div>
+          <div class="actions">
+            <button class="btn primary" id="send">Start on wrist</button>
+            <button class="btn">Remind me in 30 min</button>
+          </div>
+        </div>
+        <div class="chart-head">
+          <h3>HRV today, against your baseline</h3>
+          <div class="range" role="group" aria-label="Period">
+            <button aria-pressed="true">Today</button><button aria-pressed="false">7 days</button>
+          </div>
+        </div>
+        <div id="hrv"></div>
+      </section>
+
+      <section class="card cabin" aria-labelledby="cabin-title">
+        <div class="card-head"><h2 id="cabin-title">Cabin air</h2><span class="muted fig">14:32</span></div>
+        <div class="co2">
+          <div class="label muted">CO2 partial pressure, 1-hour average</div>
+          <div class="value"><span id="ppco2-avg"></span><small>mmHg</small></div>
+          <div class="track" aria-hidden="true"><div class="fill" id="co2-fill"></div><div class="avg" id="co2-now"></div><div class="limit" id="co2-limit"></div></div>
+          <div class="scale"><span class="fig">0</span><span>NASA limit <span class="fig">3.0</span></span></div>
+        </div>
+        <div class="chart-head"><h3>CO2 since 08:00</h3><span class="muted">mmHg</span></div>
+        <div id="co2-chart"></div>
+        <ul class="kv">
+          <li><span>CO2 now</span><span class="fig">2.70 mmHg</span></li>
+          <li><span>CO2 concentration</span><span class="fig">3,557 ppm</span></li>
+          <li><span>Cabin pressure</span><span class="fig">101.2 kPa</span></li>
+          <li><span>Pressure trend</span><span class="fig">−2 Pa/min</span></li>
+          <li><span>Temperature</span><span class="fig">22.4 °C</span></li>
+          <li><span>Humidity</span><span class="fig">46 %</span></li>
+        </ul>
+        <p class="source">Limit from NASA-STD-3001 Vol. 2, V2 6004.</p>
+      </section>
+
+      <section class="card log" aria-labelledby="log-title">
+        <div class="card-head"><h2 id="log-title">Alerts today</h2><a class="muted" href="#">View all</a></div>
+        <table>
+          <thead><tr><th>Time</th><th>Event</th><th class="by-cell">Raised by</th><th>State</th></tr></thead>
+          <tbody id="events"></tbody>
+        </table>
+      </section>
+
+      <section class="card checkin" aria-labelledby="check-title">
+        <div class="card-head"><h2 id="check-title">Daily check-in</h2><span class="muted">Done at <span class="fig">07:05</span></span></div>
+        <div class="cells">
+          <div><div class="label">Sleep</div><div class="value">6:10<small>h</small></div><div class="note watch">Under the 7 h you aim for</div></div>
+          <div><div class="label">Mood</div><div class="value">3<small>of 5</small></div><div class="note">"A bit tense"</div></div>
+          <div><div class="label">Blood pressure</div><div class="value">118/76<small>mmHg</small></div><div class="note">Again at <span class="fig">19:00</span></div></div>
+          <div><div class="label">Blood glucose</div><div class="value">96<small>mg/dL</small></div><div class="note">Before breakfast</div></div>
+        </div>
+        <div class="streak">
+          <div><span class="fig">12</span> days in a row</div>
+          <div class="days" aria-label="Last 14 days: 12 check-ins done, today done" id="days"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="charts.js"></script>
+<script>
+const data = {
+  hrvBaseline: 49,
+  // HRV (RMSSD, ms) every 10 min from 08:00 to 14:30
+  hrv: [50, 48, 51, 49, 52, 50, 47, 49, 51, 50, 48, 49, 51, 47, 45, 44, 42, 43, 41, 40, 41, 39, 38, 39, 37, 38, 36, 37, 36, 35, 36, 35, 34, 35, 34, 34, 35, 34, 34, 34],
+  stressFrom: '10:40',
+  co2: { now: 2.70, limit: 3.0 },
+  // ppCO2 (mmHg) every 10 min from 08:00 to 14:30
+  ppco2: [2.31, 2.28, 2.30, 2.34, 2.29, 2.26, 2.31, 2.35, 2.38, 2.33, 2.30, 2.29, 2.32, 2.36, 2.40, 2.37, 2.33, 2.31, 2.35, 2.39, 2.42, 2.38, 2.36, 2.41, 2.45, 2.43, 2.40, 2.44, 2.48, 2.51, 2.55, 2.58, 2.62, 2.88, 3.04, 2.86, 2.74, 2.71, 2.70, 2.70],
+  systems: [
+    { id: 'nerves', name: 'Brain and stress', status: 'watch', state: 'HRV 31 % below baseline',
+      what: 'Heart rate variability and skin conductance show how hard your nervous system is working.',
+      why: 'Isolation, a packed schedule and broken sleep keep the stress response switched on. On long missions this is one of the main risks NASA tracks.',
+      act: 'Take a break when HRV stays well below your own baseline for more than 10 minutes. Talk to the flight surgeon if it lasts for days.' },
+    { id: 'heart', name: 'Heart', status: 'ok', state: '72 bpm at rest, regular',
+      what: 'Heart rate from the optical sensor and from the ECG, plus the rhythm between beats.',
+      why: 'In weightlessness blood shifts towards the head and the heart has less work to do. Over months it can lose some of its strength.',
+      act: 'A resting heart rate above 120 bpm for 5 minutes, or below 40, raises an alert on your wrist.' },
+    { id: 'lungs', name: 'Lungs and oxygen', status: 'ok', state: 'SpO2 97 %',
+      what: 'How much of your blood is carrying oxygen.',
+      why: 'Cabin air is closed and recycled. A fault in life support shows up here and in the CO2 reading.',
+      act: 'Below 94 % for 30 seconds is a warning, below 90 % an alarm. Stop exercising and check the cabin air.' },
+    { id: 'skin', name: 'Skin and temperature', status: 'ok', state: '33.8 °C, steady',
+      what: 'Temperature measured at the wrist. It follows trends, it is not your core temperature.',
+      why: 'The immune system changes in space and infections can start quietly. A slow rise over a day is worth noting.',
+      act: 'Compare with your own normal range rather than a fixed number. Log how you feel in the check-in.' },
+    { id: 'muscle', name: 'Muscles and bones', status: 'ok', state: 'Exercise 1:05 of 2:30 h',
+      what: 'Movement from the wrist sensor: rest, light or intense activity, and tremor.',
+      why: 'Without gravity, bones lose 1 to 1.5 % of their mass per month and muscles shrink. Daily exercise is the main protection.',
+      act: 'Plan the rest of today’s exercise. A new tremor at rest is worth reporting.' },
+  ],
+  events: [
+    { t: '10:40', text: 'Stress rising', sev: 'warn', by: 'Dashboard', state: 'open' },
+    { t: '13:58', text: 'CO2 above 3 mmHg, peak 3.04', sev: 'warn', by: 'Wrist', state: 'Cleared 14:06' },
+    { t: '12:15', text: 'ECG electrode loose', sev: 'info', by: 'Wrist', state: 'Fixed 12:17' },
+    { t: '09:12', text: 'Shock detected, 3.4 g', sev: 'warn', by: 'Wrist', state: 'Seen by you' },
+    { t: '07:05', text: 'Check-in completed', sev: 'info', by: 'You', state: '' },
+  ],
+  checkins14: [1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+};
+
+const baselineDrop = Math.round((data.hrv.at(-1) - data.hrvBaseline) / data.hrvBaseline * 100);
+console.assert(baselineDrop === -31, 'HRV drop shown in the strip must match the data');
+console.assert(data.checkins14.filter((d) => d === 1).length === 12, 'streak count');
+
+document.getElementById('finding').innerHTML =
+  `<strong>Stress has been rising since ${data.stressFrom}.</strong> Everything else is in range, and cabin CO2 is under the NASA limit.`;
+
+// body systems
+const list = document.getElementById('systems');
+const explain = document.getElementById('explain');
+const select = (id) => {
+  const s = data.systems.find((x) => x.id === id);
+  list.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  document.querySelectorAll('.figure .hit').forEach((g) => g.classList.toggle('on', g.dataset.system === id));
+  explain.innerHTML = `<h3>${s.name}</h3><p>${s.what}</p><p><b>In space.</b> ${s.why}</p><p><b>When to act.</b> ${s.act}</p>`;
+};
+for (const s of data.systems) {
+  const li = document.createElement('li');
+  li.innerHTML = `<button data-id="${s.id}" aria-pressed="false"><span class="dot ${s.status}"></span><span class="name">${s.name}</span><span class="state">${s.state}</span></button>`;
+  li.firstChild.addEventListener('click', () => select(s.id));
+  list.appendChild(li);
+}
+document.querySelectorAll('.figure .hit').forEach((g) => g.addEventListener('click', () => select(g.dataset.system)));
+select('nerves');
+
+// HRV chart
+const labels = data.hrv.map((_, i) => Charts.fmt.clock(8 * 60 + i * 10));
+Charts.line(document.getElementById('hrv'), {
+  labels,
+  series: [{ name: 'HRV', values: data.hrv }],
+  format: (v) => `${Math.round(v)} ms`,
+  tickFormat: (v) => String(v),
+  yTicks: [20, 30, 40, 50, 60],
+  height: 190,
+  reference: { value: data.hrvBaseline, label: 'Your baseline 49 ms' },
+  annotations: [{ at: labels.indexOf(data.stressFrom), label: 'Stress trend starts', short: 'Stress' }],
+});
+
+// cabin CO2: the 1-hour average is the last six 10-minute samples
+const last6 = data.ppco2.slice(-6);
+data.co2.avg1h = last6.reduce((a, b) => a + b, 0) / last6.length;
+console.assert(data.ppco2.at(-1) === data.co2.now, 'CO2 now must match the chart');
+document.getElementById('ppco2-avg').textContent = data.co2.avg1h.toFixed(2);
+Charts.line(document.getElementById('co2-chart'), {
+  labels,
+  series: [{ name: 'ppCO2', values: data.ppco2, colour: '#bdbdc0' }],
+  format: (v) => `${v.toFixed(2)} mmHg`,
+  tickFormat: (v) => v.toFixed(1),
+  yTicks: [2.0, 2.5, 3.0, 3.5],
+  height: 150,
+  xAt: [0, 18, 36],
+  reference: { value: data.co2.limit, label: 'Limit 3.0' },
+});
+const pct = (v) => `${(v / 3.5) * 100}%`;
+document.getElementById('co2-fill').style.width = pct(data.co2.avg1h);
+document.getElementById('co2-now').style.left = pct(data.co2.now);
+document.getElementById('co2-limit').style.left = pct(data.co2.limit);
+document.getElementById('co2-now').title = `Now ${data.co2.now.toFixed(2)} mmHg`;
+
+// alerts
+const sevPill = { warn: '<span class="dot watch"></span>', info: '<span class="dot" style="background:var(--muted)"></span>' };
+document.getElementById('events').innerHTML = data.events.map((e) => `
+  <tr><td class="time">${e.t}</td>
+  <td><span class="event">${sevPill[e.sev]}${e.text}</span></td>
+  <td class="by-cell by">${e.by}</td>
+  <td>${e.state === 'open' ? '<button class="textbtn">Mark handled</button>' : `<span class="muted">${e.state}</span>`}</td></tr>`).join('');
+
+// check-in streak
+document.getElementById('days').innerHTML = data.checkins14.map((d) => `<span class="${d === 2 ? 'today' : d ? 'done' : ''}"></span>`).join('');
+
+// live ECG sweep, 250 Hz like the wrist station
+const cv = document.getElementById('ecg');
+const ctx = cv.getContext('2d');
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let W = 0, H = 0, x = 0, t = 0;
+const size = () => {
+  const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H); x = 0;
+};
+const beat = 60 / 72;
+const ecg = (s) => {
+  const p = (s % beat) / beat;
+  const g = (c, w, a) => a * Math.exp(-((p - c) ** 2) / (2 * w * w));
+  return g(.18, .025, .12) - g(.355, .008, .12) + g(.37, .01, 1) - g(.39, .009, .25) + g(.62, .045, .28);
+};
+const y = (v) => H * .72 - v * H * .62;
+const step = () => {
+  const px = still ? W : 2.4;
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.25;
+  for (let i = 0; i < px; i++) {
+    ctx.clearRect(x + 2, 0, 12, H);
+    ctx.beginPath(); ctx.moveTo(x, y(ecg(t))); t += 0.008; ctx.lineTo(x + 1, y(ecg(t))); ctx.stroke();
+    x += 1; if (x >= W) x = 0;
+  }
+  if (!still) requestAnimationFrame(step);
+};
+size(); addEventListener('resize', size); step();
+
+// clock
+const clock = document.getElementById('clock');
+let secs = 14 * 3600 + 32 * 60 + 8;
+setInterval(() => { secs++; clock.textContent = [secs / 3600, secs / 60 % 60, secs % 60].map((n) => String(Math.floor(n)).padStart(2, '0')).join(':'); }, 1000);
+
+document.getElementById('send').addEventListener('click', (e) => { e.target.textContent = 'Sent to wrist'; e.target.disabled = true; });
+</script>
+</body>
+</html>
