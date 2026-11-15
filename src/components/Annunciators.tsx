@@ -1,18 +1,9 @@
 import type { AlertEvent, Vitals } from '../types';
 import type { LinkStatus } from '../lib/packets';
-import { EVENT_CODE } from '../lib/packets';
+import { cwClass, type CwClass } from '../lib/cw';
 import { LAMPS, type LampLabel } from '../lib/lamps';
 
-// ISS caution and warning classes; a rapid depress is the one emergency the watch can see
-export type CwClass = 'emergency' | 'warning' | 'caution' | 'advisory';
-
-export function cwClass(a: Pick<AlertEvent, 'code' | 'severity'>): CwClass {
-  if (a.severity === 'alarm') return a.code === EVENT_CODE.pressureDrop ? 'emergency' : 'warning';
-  return a.severity === 'warning' ? 'caution' : 'advisory';
-}
-
 const RANK: Record<CwClass, number> = { advisory: 1, caution: 2, warning: 3, emergency: 4 };
-
 
 interface Props {
   alerts: AlertEvent[];

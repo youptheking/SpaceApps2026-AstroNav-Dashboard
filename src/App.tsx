@@ -3,6 +3,7 @@ import { Overview } from './pages/Overview';
 import { sample } from './data/sample';
 import { toMinutes } from './lib/health';
 import { useTelemetry } from './lib/useTelemetry';
+import { useCrew } from './lib/useCrew';
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');
 
@@ -24,12 +25,15 @@ function gmtOf(now: Date, sampleSeconds: number | null): string {
 }
 
 export default function App() {
-  const telemetry = useTelemetry();
+  const real = useTelemetry();
+  const crew = useCrew(real);
+  const telemetry = crew.telemetry;
   const now = useNow();
   const [opened] = useState(() => Date.now());
   // the sample screen runs its own clock from the time in the sample, so its charts line up
   const sampleSeconds = toMinutes(sample.now) * 60 + Number(sample.now.split(':')[2] ?? 0) + Math.floor((now.getTime() - opened) / 1000);
   const gmt = gmtOf(now, telemetry.data.source === 'sample' ? sampleSeconds : null);
 
-  return <Overview telemetry={telemetry} gmt={gmt} />;
+  // a fresh console per crew member: their own popups, handled marks and silenced alerts
+  return <Overview key={crew.selected.id} telemetry={telemetry} gmt={gmt} crew={crew} />;
 }

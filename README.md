@@ -90,6 +90,7 @@ Eén scherm, opgezet als een consolescherm zoals aan boord van een ruimtestation
 | **Logboek** | Alle alarmen van vandaag, wie ze gaf (pols, dashboard, astronaut) en hoe ze zijn afgehandeld. Afhandelen zet de buzzer op het horloge uit. |
 | **Demo** | Een demohorloge op de laptop dat dezelfde pakketten stuurt als het echte horloge, met een verhaal van 5 minuten: stress bouwt op, CO2 loopt op, een elektrode laat los, en alles herstelt. Waarden die het echte horloge in de demomodus simuleert, staan gemarkeerd als **Sim**. |
 | **Link** | youpspace.com rechtsonder, opent in de browser. |
+| **Crew-kiezer** (bovenbalk) | Kies welk crewlid de console toont. Het eerste crewlid is het echte polsstation; de andere drie zijn **demo-crewleden** (demohorloges op de laptop, gelabeld als "Demo"), elk in een eigen module met een eigen verhaal: CO2 loopt op in Destiny, stress bij een zware werkblok in Kibo, en een rustig crewlid in Harmony. Een gekleurde stip per crewlid toont het ernstigste open alarm, en een uitroepteken op de knop laat zien dat iemand anders een probleem heeft. |
 
 ## Wat nog niet werkt of voorbeelddata is
 
@@ -98,13 +99,14 @@ Eén scherm, opgezet als een consolescherm zoals aan boord van een ruimtestation
 | **Check-in** (slaap, stemming, bloeddruk, glucose) en de **crewnaam** | **Voorbeelddata.** Er is nog geen invoer; het horloge meet dit niet. |
 | **7 dagen geschiedenis van het horloge** ophalen | Het horloge slaat het op, het dashboard haalt het nog niet op. Trends beginnen bij het verbinden. |
 | **PTT** (bloeddruktrend uit ECG + PPG) | Niet gebouwd. De ruwe ECG en PPG komen wel binnen met dezelfde klok. |
+| **Meerdere echte horloges tegelijk** | Eén Bluetooth-verbinding tegelijk. De andere crewleden zijn demohorloges. Meerdere verbindingen en een overzicht van de hele crew naast elkaar is de volgende stap. |
 | **Lichtsensor** | Geschrapt in de hardware (zie de firmware-repo). |
 | **Rust-kant** van de link naar youpspace.com (`tauri-plugin-opener`) | Toegevoegd, maar nog niet gebouwd en getest op een pc. |
 
 ## Testen
 
 ```
-npm test          # 44 tests: pakketten, signaalkwaliteit, demo, interface, mute
+npm test          # 46 tests: pakketten, signaalkwaliteit, demo, crew, interface, mute
 npm run typecheck
 npm run lint
 cd src-tauri && cargo test   # protocol-parser

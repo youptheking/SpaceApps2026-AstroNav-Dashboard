@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BodySystem } from '../types';
 import type { Telemetry } from '../lib/useTelemetry';
+import type { CrewView } from '../lib/useCrew';
 import { adviceFor } from '../lib/advice';
 import { sampleTimes } from '../lib/health';
 import { openExternal } from '../lib/external';
@@ -30,7 +31,7 @@ type Pop =
   | { kind: 'checkin' }
   | { kind: 'mute' };
 
-export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string }) {
+export function Overview({ telemetry, gmt, crew }: { telemetry: Telemetry; gmt: string; crew: CrewView }) {
   const { data, link } = telemetry;
   const [pop, setPop] = useState<Pop | null>(null);
   // handled here right away, so the row changes before the next update from the watch
@@ -114,6 +115,7 @@ export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string
         demo={telemetry.demo}
         onDemo={telemetry.setDemo}
         onLink={() => setPop({ kind: 'link' })}
+        crew={crew}
       />
       <Annunciators alerts={data.alerts} vitals={data.vitals} link={link} linkLost={linkLost} muted={muted} onOpen={() => setPop({ kind: 'log' })} />
 

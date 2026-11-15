@@ -14,15 +14,36 @@ const HISTORY_MIN = 45;
 
 const ramp = (t: number, from: number, to: number) => Math.min(1, Math.max(0, (t - from) / (to - from)));
 
+// Which story a pretend watch plays. 'full' is the original five-minute story; the others are
+// for extra demo crew members, so each one shows something different.
+//   co2     a badly ventilated module: CO2 creeps over 3 mmHg and back, the body stays calm
+//   stress  a hard work block: stress builds and fades, the air is fine
+//   calm    nothing happens: everything in range
+export type DemoStory = 'full' | 'co2' | 'stress' | 'calm';
+
+export interface DemoOptions {
+  story?: DemoStory;
+  // seconds into the cycle at the start, so several pretend watches are not in step
+  startS?: number;
+  // personal resting heart rate and HRV, so crew members do not look identical
+  restingHr?: number;
+  restingRmssd?: number;
+}
+
 // the story at t seconds into the cycle
-function scene(t: number) {
+function scene(t: number, story: DemoStory) {
   const stress = ramp(t, 30, 90) - ramp(t, 170, 230);
   const co2Rise = ramp(t, 60, 120) - ramp(t, 150, 200);
-  return {
-    stress,
-    ppco2: 2.55 + 0.75 * co2Rise,
-    leadsOff: t >= 115 && t < 123,
-  };
+  switch (story) {
+    case 'co2':
+      return { stress: 0, ppco2: 2.6 + 0.75 * co2Rise, leadsOff: false };
+    case 'stress':
+      return { stress, ppco2: 2.35, leadsOff: false };
+    case 'calm':
+      return { stress: 0, ppco2: 2.2, leadsOff: false };
+    default:
+      return { stress, ppco2: 2.55 + 0.75 * co2Rise, leadsOff: t >= 115 && t < 123 };
+  }
 }
 
 function gauss(): number {
@@ -46,6 +67,17 @@ export class DemoWatch {
   private co2Hour: number[] = [];
   private active = new Set<number>();
   private battery = 84;
+  private story: DemoStory;
+  private startMs: number;
+  private restingHr: number;
+  private restingRmssd: number;
+
+  constructor(options: DemoOptions = {}) {
+    this.story = options.story ?? 'full';
+    this.startMs = Math.round((options.startS ?? 0) * 10) * 100;
+    this.restingHr = options.restingHr ?? 70;
+    this.restingRmssd = options.restingRmssd ?? 48;
+  }
 
   private header() {
     return { seq: this.seq++ & 0xffff, tMs: this.ms };
@@ -53,7 +85,7 @@ export class DemoWatch {
 
   // heart rate and RMSSD the story asks for
   private heart(stress: number) {
-    return { hr: 70 + 14 * stress, rmssd: 48 - 18 * stress };
+    return { hr: this.restingHr + 14 * stress, rmssd: this.restingRmssd - 18 * stress };
   }
 
   // one RR interval: mean from heart rate, breathing swing plus noise sized to give the RMSSD
@@ -91,7 +123,7 @@ export class DemoWatch {
         total += rr;
       }
       out.push([{ kind: 'rr', header: this.header(), intervalsMs: intervals }, minute]);
-      const drift = 2.3 + 0.25 * (1 - m / HISTORY_MIN);
+      const drift = scene(0, this.story).ppco2 - 0.25 * (m / HISTORY_MIN);
       for (let s = 0; s < 60; s += 5) out.push([this.air(drift, 0), new Date(minute.getTime() + s * 1000)]);
     }
     return out;
@@ -107,8 +139,8 @@ export class DemoWatch {
   // everything the watch sends in the next 100 ms
   tick(): Packet[] {
     const out: Packet[] = [];
-    const t = (this.ms / 1000) % CYCLE_S;
-    const s = scene(t);
+    const t = ((this.ms + this.startMs) / 1000) % CYCLE_S;
+    const s = scene(t, this.story);
 
     if (this.ms === 0) out.push({ kind: 'sim', header: this.header(), demo: false, simulated: 0, batterySimulated: false });
 

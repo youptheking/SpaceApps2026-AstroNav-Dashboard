@@ -1,5 +1,5 @@
 import type { AlertEvent } from '../types';
-import { cwClass } from './Annunciators';
+import { cwClass } from '../lib/cw';
 import { Panel } from './Panel';
 
 interface Props {

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Snapshot } from '../types';
 import type { LinkStatus } from '../lib/packets';
+import type { CrewView } from '../lib/useCrew';
+import { CrewSelect } from './CrewSelect';
 
 interface Props {
   data: Snapshot;
@@ -9,6 +11,7 @@ interface Props {
   demo: boolean;
   onDemo: (on: boolean) => void;
   onLink: () => void;
+  crew: CrewView;
 }
 
 // a logo from public/logos; when the file is not there the name alone is shown
@@ -29,7 +32,7 @@ const linkText = (link: LinkStatus) => {
   }
 };
 
-export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink }: Props) {
+export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink, crew }: Props) {
   const busy = link.state === 'scanning' || link.state === 'connecting' || link.state === 'reconnecting';
   // a dropout is still the real watch's session; the pretend one stays off
   const live = link.state === 'connected' || link.state === 'reconnecting';
@@ -45,7 +48,12 @@ export function ConsoleBar({ data, link, gmt, demo, onDemo, onLink }: Props) {
         <span className="k">NASA Space Apps 2026</span>
       </div>
 
+      <CrewSelect members={crew.members} selected={crew.selected} onSelect={crew.select} />
+
       <div className="bar-end">
+        {crew.selected.kind === 'demo' && (
+          <span className="pill sim" title="A pretend watch on this laptop, to show the console for a whole crew">Demo crew member</span>
+        )}
         {data.source === 'sample' && <span className="pill" title="Example values, not from a watch">Sample data</span>}
         {data.source === 'live' && data.demoMode && (
           <span className="pill sim" title="The watch fills in values it cannot measure; those are marked Sim">Watch in demo mode</span>

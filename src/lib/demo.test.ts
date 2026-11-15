@@ -42,3 +42,29 @@ test('by the end of the story everything has cleared again', () => {
   expect(s.alerts.every((a) => a.resolution !== null)).toBe(true);
   expect(s.cabin.ppco2Now).toBeLessThan(2.9);
 });
+
+// same as play(), for one of the extra crew stories
+function playStory(options: ConstructorParameters<typeof DemoWatch>[0], seconds: number) {
+  const watch = new DemoWatch(options);
+  const model = new LiveModel();
+  const start = new Date(2026, 10, 15, 14, 0, 0).getTime();
+  for (const [p, at] of watch.history(new Date(start))) model.apply(p, at);
+  for (let ms = 0; ms < seconds * 1000; ms += 100) {
+    for (const p of watch.tick()) model.apply(p, new Date(start + ms));
+  }
+  return model.snapshot(base, new Date(start + seconds * 1000));
+}
+
+test('each crew story shows something different', () => {
+  const co2 = playStory({ story: 'co2' }, 125);
+  expect(co2.cabin.ppco2Now).toBeGreaterThan(3);
+  expect(co2.stressFrom).toBeNull();
+
+  const stress = playStory({ story: 'stress', restingHr: 74 }, 125);
+  expect(stress.stressFrom).not.toBeNull();
+  expect(stress.cabin.ppco2Now).toBeLessThan(2.6);
+
+  const calm = playStory({ story: 'calm', restingHr: 61 }, 125);
+  expect(calm.alerts.filter((a) => a.resolution === null)).toHaveLength(0);
+  expect(calm.vitals.hrEcg).toBeLessThan(66);
+});
