@@ -118,3 +118,21 @@
 .toggle[aria-checked="true"] .track-sw { background: var(--positive); }
 .toggle[aria-checked="true"] .track-sw span { transform: translateX(10px); background: #fff; }
 @media (prefers-reduced-motion: reduce) { .track-sw, .track-sw span { transition: none; } }
+
+/* sound per lamp, bottom right */
+.foot-link { color: var(--text-soft); font-size: 11px; white-space: nowrap; text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 3px; }
+.foot-link:hover { color: var(--text); }
+.foot-mute {
+  height: 20px; padding: 0 8px; cursor: pointer; white-space: nowrap; font-size: 11px;
+  background: none; border: 1px solid var(--border-strong); border-radius: var(--radius); color: var(--text-soft);
+}
+.foot-mute:hover { background: var(--raised); color: var(--text); }
+.foot-mute.on { border-color: #7a5a14; color: #ffd27a; }
+.lamp { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.lamp-mute { flex: none; opacity: 0.85; }
+/* a muted lamp keeps its colour but stops blinking: the problem is seen, the alarm acknowledged */
+.lamp.muted { animation: none; border-style: dashed; }
+.mute-list { list-style: none; margin: 0; padding: 0; }
+.mute-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid var(--rule); }
+.mute-list .toggle { min-width: 92px; }
+.mute-actions { display: flex; justify-content: flex-end; margin-top: 12px; }

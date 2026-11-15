@@ -71,17 +71,19 @@ export function VitalsStrip({ vitals, battery, simulated, hrvNow, hrvBaseline, e
         <Readout
           tone="hr" label="Heart rate" unit="bpm" sim={simulated.optical}
           sub={vitals.leadsOff ? 'ECG electrode loose'
+            : vitals.hrEcg === null && vitals.opticalHeld ? 'Holding last reading'
             : vitals.hrEcg === null && OPTICAL_NOTE[vitals.optical] ? OPTICAL_NOTE[vitals.optical]
             : <>ECG <span className="fig">{vitals.hrEcg ?? '—'}</span>{vitals.hrEcg !== null && `, ${vitals.rhythmRegular ? 'regular' : 'irregular'}`}</>}
         >
-          <Figure value={vitals.hrPpg ?? vitals.hrEcg} />
+          <span className={vitals.hrEcg === null && vitals.opticalHeld ? 'held' : undefined}><Figure value={vitals.hrPpg ?? vitals.hrEcg} /></span>
         </Readout>
         <Readout
           tone="spo2" label="SpO2" unit="%" sim={simulated.optical}
-          sub={OPTICAL_NOTE[vitals.optical]
+          sub={vitals.opticalHeld ? 'Holding last reading'
+            : OPTICAL_NOTE[vitals.optical]
             ?? <>Perfusion <span className="fig"><Figure value={vitals.perfusion} digits={1} /></span> %</>}
         >
-          <Figure value={vitals.spo2} />
+          <span className={vitals.opticalHeld ? 'held' : undefined}><Figure value={vitals.spo2} /></span>
         </Readout>
         <Readout
           tone={drop !== null && drop <= -20 ? 'hrv low' : 'hrv'} label="HRV" unit="ms"

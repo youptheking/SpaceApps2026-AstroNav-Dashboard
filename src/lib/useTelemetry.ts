@@ -40,6 +40,8 @@ export interface Telemetry {
   disconnect: () => void;
   sendAlert: (code: number, severity: number, messageId: number) => Promise<boolean>;
   markHandled: (id: string, code: number | null) => void;
+  // stops the buzzer on the watch for this code without marking the alert handled; false when not connected
+  silence: (code: number) => Promise<boolean>;
   ecgSamples: (() => number[]) | null;
 }
 
@@ -137,6 +139,17 @@ export function useTelemetry(): Telemetry {
     if (code !== null && live) invoke('ble_clear_alert', { code }).catch(showError);
   }, [session, live, showError]);
 
+  const silence = useCallback(async (code: number) => {
+    if (!live) return false;
+    try {
+      await invoke('ble_clear_alert', { code });
+      return true;
+    } catch (e) {
+      showError(e);
+      return false;
+    }
+  }, [live, showError]);
+
   const ecgSamples = useCallback(() => model.current.ecgSamples(), []);
 
   return {
@@ -149,6 +162,7 @@ export function useTelemetry(): Telemetry {
     disconnect,
     sendAlert,
     markHandled,
+    silence,
     ecgSamples: session ? ecgSamples : null,
   };
 }

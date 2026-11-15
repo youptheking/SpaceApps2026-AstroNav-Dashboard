@@ -28,6 +28,7 @@ export const sample: Snapshot = {
     leadsOff: false,
     skinContact: true,
     optical: 'ok',
+    opticalHeld: false,
     ecgUsable: true,
   },
   battery: { percent: 85, hoursLeft: 19, simulated: true },

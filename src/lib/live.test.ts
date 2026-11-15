@@ -102,4 +102,26 @@ describe('LiveModel', () => {
     expect(s.simulated).toEqual({ optical: false, co2: true, pressure: false });
     expect(s.battery.simulated).toBe(true);
   });
+
+  test('a short optical dropout holds the last trusted reading instead of blanking it', () => {
+    const m = new LiveModel();
+    const good = { kind: 'vitals' as const, header, hrPpg: 74, hrEcg: null, spo2: 98, perfusion: 1.8, skinTemp: 33.9, activity: 0,
+      tremorHz: null, tremorAmp: 0, skinContact: true, motionArtifact: false, leadsOff: false, shock: false };
+    m.apply(good, at(30, 0));
+    m.apply({ ...good, hrPpg: 140, spo2: 85, perfusion: 0.1 }, at(30, 3));
+    let s = m.snapshot(base, at(30, 3));
+    expect(s.vitals.hrPpg).toBe(74);
+    expect(s.vitals.spo2).toBe(98);
+    expect(s.vitals.opticalHeld).toBe(true);
+    // too long ago: blank again
+    m.apply({ ...good, hrPpg: 140, spo2: 85, perfusion: 0.1 }, at(30, 10));
+    s = m.snapshot(base, at(30, 10));
+    expect(s.vitals.spo2).toBeNull();
+    expect(s.vitals.opticalHeld).toBe(false);
+    // off the skin: never held
+    m.apply(good, at(31, 0));
+    m.apply({ ...good, skinContact: false }, at(31, 1));
+    s = m.snapshot(base, at(31, 1));
+    expect(s.vitals.spo2).toBeNull();
+  });
 });

@@ -180,3 +180,6 @@
 .leads-tab .leads b { font-size: 12px; }
 .leads-tab .where { font-size: 11px; line-height: 15px; }
 .lead-state { margin: 4px 0 0; font-size: 12px; }
+
+/* an optical value held over a short dropout: still shown, visibly older */
+.held { opacity: 0.5; }

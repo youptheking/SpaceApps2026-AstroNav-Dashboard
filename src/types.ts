@@ -18,6 +18,8 @@ export interface Vitals {
   skinContact: boolean;
   // whether the optical sensor reading is trustworthy; hrPpg and spo2 are null when it is not
   optical: OpticalQuality;
+  // hrPpg and spo2 are the last trusted reading of a few seconds ago, held over a short dropout
+  opticalHeld: boolean;
   // whether the ECG looks like a heartbeat rather than mains hum, overload or a flat line
   ecgUsable: boolean;
 }

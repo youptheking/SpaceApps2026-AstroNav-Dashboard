@@ -14,8 +14,12 @@ const SOURCE = ['Wrist', 'Dashboard', 'You'] as const;
 
 const emptyVitals = (): Vitals => ({
   hrPpg: null, hrEcg: null, rhythmRegular: true, spo2: null, perfusion: null, skinTemp: null,
-  skinTempSteadySince: null, activity: null, leadsOff: false, skinContact: false, optical: 'noContact', ecgUsable: false,
+  skinTempSteadySince: null, activity: null, leadsOff: false, skinContact: false, optical: 'noContact', opticalHeld: false, ecgUsable: false,
 });
+
+// A wrist PPG drops out for a second at a time (a twitch, a weak beat). Keep the last trusted
+// optical reading on screen this long, marked as held, instead of blinking the number away.
+export const OPTICAL_HOLD_MS = 8000;
 
 const minuteOf = (d: Date) => Math.floor(d.getTime() / 60000);
 
@@ -36,6 +40,7 @@ export class LiveModel {
   private activeCodes = new Set<number>();
   private stressFrom: string | null = null;
   private ecg: number[] = [];
+  private lastOptical: { hr: number | null; spo2: number | null; at: number } | null = null;
   packets = 0;
 
   apply(p: Packet, at = new Date()): void {
@@ -51,11 +56,23 @@ export class LiveModel {
       case 'vitals': {
         // an optical reading taken while moving or with a weak pulse is noise; never show or act on it
         const optical = opticalQuality(p);
-        const trusted = optical === 'ok';
+        const trusted = optical === 'ok' && (p.hrPpg !== null || p.spo2 !== null);
+        let hrPpg = trusted ? p.hrPpg : null;
+        let spo2 = trusted ? p.spo2 : null;
+        let opticalHeld = false;
+        if (trusted) {
+          this.lastOptical = { hr: p.hrPpg, spo2: p.spo2, at: at.getTime() };
+        } else if (this.lastOptical && optical !== 'noContact' && at.getTime() - this.lastOptical.at <= OPTICAL_HOLD_MS) {
+          // short dropout while the sensor is still on the skin: hold the last trusted reading
+          hrPpg = this.lastOptical.hr;
+          spo2 = this.lastOptical.spo2;
+          opticalHeld = true;
+        }
         this.vitals = {
-          hrPpg: trusted ? p.hrPpg : null, hrEcg: p.hrEcg, spo2: trusted ? p.spo2 : null, perfusion: p.perfusion,
+          hrPpg, hrEcg: p.hrEcg, spo2, perfusion: p.perfusion,
           skinTemp: p.skinTemp, activity: p.activity, leadsOff: p.leadsOff, skinContact: p.skinContact,
-          rhythmRegular: this.vitals.rhythmRegular, skinTempSteadySince: null, optical, ecgUsable: this.vitals.ecgUsable,
+          rhythmRegular: this.vitals.rhythmRegular, skinTempSteadySince: null, optical, opticalHeld,
+          ecgUsable: this.vitals.ecgUsable,
         };
         break;
       }

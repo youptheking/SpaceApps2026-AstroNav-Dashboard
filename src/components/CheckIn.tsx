@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import type { CheckIn as Data } from '../types';
 import { hoursMinutes } from '../lib/health';
 
 const streakOf = (data: Data) => data.lastDays.length - 1 - data.lastDays.lastIndexOf(false);
 
 // one line along the foot of the console
-export function CheckInBar({ data, onOpen }: { data: Data; onOpen: () => void }) {
+export function CheckInBar({ data, onOpen, end }: { data: Data; onOpen: () => void; end?: ReactNode }) {
   const shortSleep = data.sleepMinutes !== null && data.sleepMinutes < data.sleepGoalMinutes;
   return (
     <footer className="foot">
@@ -18,6 +19,7 @@ export function CheckInBar({ data, onOpen }: { data: Data; onOpen: () => void })
         <span><span className="fig">{streakOf(data)}</span> days in a row</span>
       </button>
       <span className="foot-note">Limits from NASA-STD-3001 Vol. 2 &middot; Advice, not a diagnosis</span>
+      {end}
     </footer>
   );
 }

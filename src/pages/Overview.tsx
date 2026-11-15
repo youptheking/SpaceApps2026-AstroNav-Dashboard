@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BodySystem } from '../types';
 import type { Telemetry } from '../lib/useTelemetry';
 import { adviceFor } from '../lib/advice';
 import { sampleTimes } from '../lib/health';
+import { openExternal } from '../lib/external';
+import { lampOf, type LampLabel } from '../lib/lamps';
+import { loadMuted, saveMuted } from '../lib/mute';
 import { AlertsLog, EventLog } from '../components/AlertsLog';
 import { Annunciators } from '../components/Annunciators';
 import { CrewStatus, EcgSetup, SystemDetail } from '../components/BodyMap';
@@ -11,6 +14,7 @@ import { CheckIn, CheckInBar } from '../components/CheckIn';
 import { ConsoleBar } from '../components/ConsoleBar';
 import { HrvChart, HrvDetail } from '../components/HrvTrend';
 import { LinkControl } from '../components/LinkControl';
+import { MuteControl } from '../components/MuteControl';
 import { NextStep } from '../components/NextStep';
 import { Panel } from '../components/Panel';
 import { Popup } from '../components/Popup';
@@ -23,7 +27,8 @@ type Pop =
   | { kind: 'hrv' }
   | { kind: 'cabin' }
   | { kind: 'log' }
-  | { kind: 'checkin' };
+  | { kind: 'checkin' }
+  | { kind: 'mute' };
 
 export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string }) {
   const { data, link } = telemetry;
@@ -31,6 +36,27 @@ export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string
   // handled here right away, so the row changes before the next update from the watch
   const [handled, setHandled] = useState<Set<string>>(new Set());
   const close = useCallback(() => setPop(null), []);
+  const [muted, setMutedState] = useState<Set<LampLabel>>(loadMuted);
+  const setMuted = (next: Set<LampLabel>) => {
+    setMutedState(next);
+    saveMuted(next);
+  };
+  // alerts already silenced on the watch, so each one is sent once
+  const silenced = useRef(new Set<string>());
+  const { silence } = telemetry;
+
+  // a new alert on a muted lamp: stop the watch's buzzer for it right away; the lamp and the log keep it
+  useEffect(() => {
+    for (const a of data.alerts) {
+      if (a.resolution !== null || a.code === null || silenced.current.has(a.id)) continue;
+      const lamp = lampOf(a.code);
+      if (!lamp || !muted.has(lamp)) continue;
+      const code = a.code;
+      silenced.current.add(a.id);
+      // not connected right now: try again on the next update
+      void silence(code).then((ok) => { if (!ok) silenced.current.delete(a.id); });
+    }
+  }, [data.alerts, muted, silence]);
   const times = sampleTimes(data.seriesStart, data.hrv.length, data.seriesStepMinutes);
   const linkLost = link.state === 'reconnecting' || (link.state === 'disconnected' && telemetry.error !== null);
 
@@ -74,6 +100,8 @@ export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string
         );
       case 'checkin':
         return <Popup title="Daily check-in" onClose={close}><CheckIn data={data.checkIn} /></Popup>;
+      case 'mute':
+        return <Popup title="Alarm sound" onClose={close}><MuteControl muted={muted} onChange={setMuted} /></Popup>;
     }
   };
 
@@ -87,7 +115,7 @@ export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string
         onDemo={telemetry.setDemo}
         onLink={() => setPop({ kind: 'link' })}
       />
-      <Annunciators alerts={data.alerts} vitals={data.vitals} link={link} linkLost={linkLost} onOpen={() => setPop({ kind: 'log' })} />
+      <Annunciators alerts={data.alerts} vitals={data.vitals} link={link} linkLost={linkLost} muted={muted} onOpen={() => setPop({ kind: 'log' })} />
 
       <main className="deck">
         <VitalsStrip
@@ -119,7 +147,27 @@ export function Overview({ telemetry, gmt }: { telemetry: Telemetry; gmt: string
         <EventLog alerts={data.alerts} handled={handled} onMore={() => setPop({ kind: 'log' })} />
       </main>
 
-      <CheckInBar data={data.checkIn} onOpen={() => setPop({ kind: 'checkin' })} />
+      <CheckInBar
+        data={data.checkIn}
+        onOpen={() => setPop({ kind: 'checkin' })}
+        end={
+          <>
+            <a
+              className="foot-link"
+              href="https://youpspace.com"
+              onClick={(e) => {
+                e.preventDefault();
+                void openExternal('https://youpspace.com');
+              }}
+            >
+              youpspace.com
+            </a>
+            <button className={`foot-mute${muted.size ? ' on' : ''}`} onClick={() => setPop({ kind: 'mute' })} title="Mute the alarm sound per parameter">
+              {muted.size ? `${muted.size} muted` : 'Sound on'}
+            </button>
+          </>
+        }
+      />
       {pop && popup(pop)}
     </div>
   );

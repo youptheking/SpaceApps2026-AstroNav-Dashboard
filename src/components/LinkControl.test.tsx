@@ -15,6 +15,7 @@ const telemetry = (link: LinkStatus, over: Partial<Telemetry> = {}): Telemetry =
   disconnect: vi.fn(),
   sendAlert: vi.fn(async () => true),
   markHandled: vi.fn(),
+  silence: vi.fn(async () => true),
   ecgSamples: null,
   ...over,
 });
