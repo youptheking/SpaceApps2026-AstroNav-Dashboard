@@ -1,70 +1,73 @@
-# NASA Space Apps 2026 – Team AstroNav – Desktopdashboard
+<img src="public/logos/youpspace.svg" alt="YoupSpace" height="40">
 
-> **Status: nog niet gestart.** De ontwikkeling begint op zaterdag 14 november 2026 om 09:00 (NL-tijd).
-> Deze repo bevat bewust alleen projectinformatie. Er staat nog geen code in.
+# AstroNav Console – Desktop Dashboard
 
-> Dit is een **NASA Space Apps Challenge 2026**-project en staat los van de andere AstroNav-projecten (AstroNav-Nano en verwante repos).
+**NASA Space Apps Challenge 2026** · Challenge: *Create Health Monitoring Software for Astronauts on Space Missions*
+Team AstroNav (solo) · Amsterdam (virtual) · by [YoupSpace](https://youpspace.com)
 
-Zusterrepo: **SpaceApps2026-AstroNav-Firmware** (het polsstation)
+A desktop console in the style of an ISS caution-and-warning panel. It receives the telemetry from the AstroNav wrist station over Bluetooth Low Energy and turns it into live values, trends and concrete advice for the astronaut.
+
+| Repo | What |
+|---|---|
+| [SpaceApps2026-AstroNav-Firmware](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware) | Wrist station: PCB, sensors, firmware, BLE protocol |
+| **SpaceApps2026-AstroNav-Dashboard** (this repo) | Desktop console |
+
+> Separate from the other AstroNav projects (AstroNav-Nano and related repos).
+
+## Features
+
+- **Connect and unlock** the watch with the 6-digit code on its screen, automatic reconnect
+- **Caution & warning lamps** per parameter, with ISS-style classes. Mute the sound per lamp; the lamp stays lit.
+- **Vitals:** live ECG trace, heart rate (ECG and optical), SpO2, HRV against a personal baseline, skin-temperature trend
+- **Signal quality first:** optical values during movement or weak pulse are not shown as real, RR data is ignored when the ECG is poor, short dropouts hold the last good value
+- **Cabin air:** 1-hour ppCO2 against the **NASA-STD-3001 limit of 3 mmHg** and the 2.5 mmHg target, pressure trend, temperature, humidity
+- **Body map** with what changes in space and when to act, plus an ECG leads tab that opens by itself when an electrode comes loose
+- **What to do:** the most urgent advice right now, sent to the wrist with one click
+- **Event log** with who raised and who handled each alert
+- **Simulated values are always labelled:** the watch says which values are simulated, the console marks them "Sim"
+- **Demo mode:** a simulated watch on the laptop that sends the same packets and plays a 5-minute story (stress builds, CO2 rises, an electrode comes loose, the breathing break works)
+- **Station time:** everything in GMT, like on board
+
+## Stack
+
+Tauri 2 · Rust (`btleplug`) for BLE and packet parsing · React + TypeScript · Vite · Vitest
+
+```
+Wrist station (ESP32-S3)  --BLE-->  Rust backend (Tauri)  -->  React console
+```
+
+## Run
+
+```
+npm install
+npm run tauri dev
+```
+
+Tests: `npm test`. Without the watch, turn on **Demo** in the top bar.
+
+## NASA resources
+
+- **NASA-STD-3001 Vol. 2, Rev. F, [V2 6004]:** 1-hour average ppCO2 at or below 3 mmHg, shown as a limit line on the CO2 chart
+- **[V2 6022]:** alert the crew locally and remotely; the console is the remote half, the watch the local half
+- **[V2 6012]:** cabin temperature and humidity limits
+- **NASA OCHMO technical briefs** (CO2, ECLSS, Behavioral Health) for the reasoning behind the limits and why stress is monitored
+
+Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry Training Manual or are our own choice. The console gives advice, not a diagnosis.
+
+## Limitations
+
+- The daily check-in (sleep, mood, blood pressure, glucose) and the crew name are example data
+- The 7-day history stored on the watch is not fetched yet
+- No blood-pressure trend (pulse transit time) yet; the watch already sends ECG and PPG on one clock
+
+## Use of AI
+
+Per the Space Apps rules, we disclose where AI ("SI") was used.
+
+- **Idea and concept:** our own. The wrist station plus console and the choice of challenge were fixed before any AI was used.
+- **Claude (Anthropic)** was used to write most of the code from our own design (layout, alarm classes, advice rules, protocol), and to draft documentation.
+- Everything was reviewed by us and tested with the real watch. AI-assisted commits are marked in the git history.
 
 ---
 
-## Deelname
-
-| | |
-|---|---|
-| Teamnaam | Team AstroNav |
-| Deelnamevorm | Solo |
-| Locatie inschrijving | Amsterdam (virtueel evenement) |
-
-## Tijdlijn
-
-| Moment | Datum en tijd (NL) |
-|---|---|
-| Start | Zaterdag 14 november 2026, 09:00 |
-| Inleverdeadline | Zondag 15 november 2026, 23:59 |
-
-## Challenge
-
-**Create Health Monitoring Software for Astronauts on Space Missions**
-
-Langdurige ruimtemissies brengen risico's met zich mee: straling, isolatie, gewichtloosheid, veranderingen in het immuunsysteem, spieratrofie, belasting van hart en bloedvaten, en stress. Astronauten moeten hun eigen gezondheid kunnen bewaken en direct kunnen ingrijpen.
-
-## Oplossing
-
-Een samenhangend systeem met twee delen:
-
-1. **Polsstation:** een ESP32-sensorstation dat je om de pols draagt (gefreesde PCB en 3D-geprinte behuizing). Het meet lichaam en cabine, geeft lokaal waarschuwingen via OLED en buzzer, en stuurt telemetrie via Bluetooth Low Energy.
-2. **Desktopdashboard (deze repo):** een laptopapp die de telemetrie ontvangt en omzet in overzicht en actie.
-
-## Stack (gepland)
-
-- **Tauri 2:** desktop-applicatieframework
-- **Rust:** backend, BLE-verbinding en het verwerken van datapakketten
-- **React:** frontend, met grafieken en het beslissingspaneel
-
-## Datastroom
-
-```
-Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
-   sensoren uitlezen             pakketten ontvangen         realtime grafieken
-   lokale alarmen                en verwerken                trends
-                                                             beslissingspaneel
-```
-
-## Binnenkomende data
-
-| Bron | Meting |
-|---|---|
-| MAX30102 / MAX86141 | Hartslag, SpO2 |
-| TMP117 / MCP9808 | Lichaamstemperatuur |
-| ICM45686 / MPU6050 | Beweging, activiteit, slaap, tremoren |
-| GSR / AD8232 | Huidgeleiding (stress), ECG-hartgolf |
-| TSL2591 / BH1750 | Omgevingslicht en blauw licht (circadiaans ritme) |
-| SCD40 / SGP30 | Cabine-CO2 en luchtkwaliteit |
-
-## Functies (gepland)
-
-- **Realtime grafieken** van alle vitale functies en omgevingswaarden
-- **Gezondheidstrends** over langere tijd: slaap, stress, temperatuur, activiteit
-- **Beslissingspaneel** met concrete acties voor de astronaut, zoals rust nemen, ademhalingstraining starten of reageren op verhoogde CO2
+Made by [YoupSpace](https://youpspace.com) for NASA Space Apps 2026.
