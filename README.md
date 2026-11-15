@@ -5,6 +5,8 @@
 **NASA Space Apps Challenge 2026** · Challenge: *Create Health Monitoring Software for Astronauts on Space Missions*
 Team AstroNav (solo) · Amsterdam (virtual) · by [YoupSpace](https://youpspace.com)
 
+**Demo video (28 s):** https://youtu.be/2jEGsgc2vFc
+
 **This is the main repo of AstroNav.** It holds the desktop console and the hardware files (PCB and case). The watch firmware lives in its own repo.
 
 AstroNav is a health station worn on the wrist plus a desktop console. The watch measures the astronaut's body and the cabin air and warns on the wrist, even without a laptop. The console receives everything over Bluetooth Low Energy and turns it into live values, trends and one clear next step, in the style of an ISS caution and warning panel.
