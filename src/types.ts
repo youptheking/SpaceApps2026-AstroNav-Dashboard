@@ -74,6 +74,8 @@ export interface AlertEvent {
 }
 
 export interface CheckIn {
+  // example values, not filled in by anyone
+  dummy?: boolean;
   doneAt: string | null;
   sleepMinutes: number | null;
   sleepGoalMinutes: number;

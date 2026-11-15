@@ -9,7 +9,12 @@ import { lampOf, type LampLabel } from '../lib/lamps';
 import { loadMuted, saveMuted } from '../lib/mute';
 import { AlertsLog, EventLog } from '../components/AlertsLog';
 import { Annunciators } from '../components/Annunciators';
-import { CrewStatus, EcgSetup, SystemDetail } from '../components/BodyMap';
+import { CrewStatus, EcgSetup, HazardsDetail, SystemDetail } from '../components/BodyMap';
+import { DataNotice } from '../components/DataNotice';
+import { HistoryChart, HistoryDetail, HistorySource } from '../components/HistoryTrend';
+import { HAZARDS, hazardStatus } from '../lib/hazards';
+import type { CheckInEntry } from '../lib/checkin';
+import { CREW } from '../lib/crew';
 import { CabinAir, CabinDetail } from '../components/CabinAir';
 import { CheckIn, CheckInBar } from '../components/CheckIn';
 import { ConsoleBar } from '../components/ConsoleBar';
@@ -29,14 +34,26 @@ type Pop =
   | { kind: 'cabin' }
   | { kind: 'log' }
   | { kind: 'checkin' }
-  | { kind: 'mute' };
+  | { kind: 'mute' }
+  | { kind: 'hazards' }
+  | { kind: 'history' };
 
-export function Overview({ telemetry, gmt, crew }: { telemetry: Telemetry; gmt: string; crew: CrewView }) {
+interface OverviewProps {
+  telemetry: Telemetry;
+  gmt: string;
+  crew: CrewView;
+  onSaveCheckIn: (entry: CheckInEntry) => void;
+}
+
+export function Overview({ telemetry, gmt, crew, onSaveCheckIn }: OverviewProps) {
   const { data, link } = telemetry;
   const [pop, setPop] = useState<Pop | null>(null);
   // handled here right away, so the row changes before the next update from the watch
   const [handled, setHandled] = useState<Set<string>>(new Set());
   const close = useCallback(() => setPop(null), []);
+  const [trendTab, setTrendTab] = useState<'today' | 'week'>('today');
+  const hazards = HAZARDS.map((hazard) => ({ hazard, status: hazardStatus(hazard, data) }));
+  const watchMember = CREW[0]!;
   const [muted, setMutedState] = useState<Set<LampLabel>>(loadMuted);
   const setMuted = (next: Set<LampLabel>) => {
     setMutedState(next);
@@ -100,7 +117,11 @@ export function Overview({ telemetry, gmt, crew }: { telemetry: Telemetry; gmt: 
           </Popup>
         );
       case 'checkin':
-        return <Popup title="Daily check-in" onClose={close}><CheckIn data={data.checkIn} /></Popup>;
+        return <Popup title="Daily check-in" onClose={close}><CheckIn data={data.checkIn} onSave={onSaveCheckIn} /></Popup>;
+      case 'hazards':
+        return <Popup title="Five hazards of human spaceflight" onClose={close} wide><HazardsDetail hazards={hazards} /></Popup>;
+      case 'history':
+        return <Popup title="Last 7 days" onClose={close} wide><HistoryDetail history={telemetry.history} /></Popup>;
       case 'mute':
         return <Popup title="Alarm sound" onClose={close}><MuteControl muted={muted} onChange={setMuted} /></Popup>;
     }
@@ -117,6 +138,18 @@ export function Overview({ telemetry, gmt, crew }: { telemetry: Telemetry; gmt: 
         onLink={() => setPop({ kind: 'link' })}
         crew={crew}
       />
+      {/* always present, so the console grid keeps its rows when there is nothing to say */}
+      <div className="notice-row">
+      <DataNotice
+        source={data.source}
+        demoCrew={crew.selected.kind === 'demo' ? crew.selected.name : null}
+        watchName={watchMember.name}
+        onStartDemo={() => telemetry.setDemo(true)}
+        onStopDemo={() => telemetry.setDemo(false)}
+        onConnect={() => setPop({ kind: 'link' })}
+        onBackToWatch={() => crew.select(watchMember.id)}
+      />
+      </div>
       <Annunciators alerts={data.alerts} vitals={data.vitals} link={link} linkLost={linkLost} muted={muted} onOpen={() => setPop({ kind: 'log' })} />
 
       <main className="deck">
@@ -134,17 +167,31 @@ export function Overview({ telemetry, gmt, crew }: { telemetry: Telemetry; gmt: 
           leadsOff={data.vitals.leadsOff}
           onSystem={(id) => setPop({ kind: 'system', id })}
           onLeads={() => setPop({ kind: 'ecg' })}
+          hazards={hazards}
+          onHazards={() => setPop({ kind: 'hazards' })}
         />
         <CabinAir cabin={data.cabin} simulated={data.simulated} onMore={() => setPop({ kind: 'cabin' })} />
         <NextStep advice={adviceFor(data)} onSend={telemetry.sendAlert} />
         <Panel
-          title="HRV today"
+          title="Trends"
           className="hrv-panel"
-          meta={data.hrvBaseline !== null ? `baseline ${data.hrvBaseline} ms` : 'Since connecting'}
+          meta={
+            <span className="tabs-meta">
+              <span className="tabs" role="tablist" aria-label="Trend view">
+                <button role="tab" aria-selected={trendTab === 'today'} onClick={() => setTrendTab('today')}>HRV today</button>
+                <button role="tab" aria-selected={trendTab === 'week'} onClick={() => setTrendTab('week')}>7 days</button>
+              </span>
+              {trendTab === 'today'
+                ? <span>{data.hrvBaseline !== null ? `baseline ${data.hrvBaseline} ms` : 'Since connecting'}</span>
+                : <HistorySource history={telemetry.history} />}
+            </span>
+          }
           more="More"
-          onMore={() => setPop({ kind: 'hrv' })}
+          onMore={() => setPop({ kind: trendTab === 'today' ? 'hrv' : 'history' })}
         >
-          <HrvChart times={times} hrv={data.hrv} baseline={data.hrvBaseline} stressFrom={data.stressFrom} xLabels={5} />
+          {trendTab === 'today'
+            ? <HrvChart times={times} hrv={data.hrv} baseline={data.hrvBaseline} stressFrom={data.stressFrom} xLabels={5} />
+            : <HistoryChart history={telemetry.history} />}
         </Panel>
         <EventLog alerts={data.alerts} handled={handled} onMore={() => setPop({ kind: 'log' })} />
       </main>

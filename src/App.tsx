@@ -4,6 +4,7 @@ import { sample } from './data/sample';
 import { toMinutes } from './lib/health';
 import { useTelemetry } from './lib/useTelemetry';
 import { useCrew } from './lib/useCrew';
+import { useCheckIn } from './lib/checkin';
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');
 
@@ -27,7 +28,9 @@ function gmtOf(now: Date, sampleSeconds: number | null): string {
 export default function App() {
   const real = useTelemetry();
   const crew = useCrew(real);
-  const telemetry = crew.telemetry;
+  const checkIn = useCheckIn(crew.selected);
+  // the check-in belongs to the crew member, not to the watch: the same with or without it
+  const telemetry = { ...crew.telemetry, data: { ...crew.telemetry.data, checkIn: checkIn.data } };
   const now = useNow();
   const [opened] = useState(() => Date.now());
   // the sample screen runs its own clock from the time in the sample, so its charts line up
@@ -35,5 +38,5 @@ export default function App() {
   const gmt = gmtOf(now, telemetry.data.source === 'sample' ? sampleSeconds : null);
 
   // a fresh console per crew member: their own popups, handled marks and silenced alerts
-  return <Overview key={crew.selected.id} telemetry={telemetry} gmt={gmt} crew={crew} />;
+  return <Overview key={crew.selected.id} telemetry={telemetry} gmt={gmt} crew={crew} onSaveCheckIn={checkIn.save} />;
 }

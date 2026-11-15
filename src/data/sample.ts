@@ -65,6 +65,7 @@ export const sample: Snapshot = {
     { id: 's5', code: null, time: '07:05', text: 'Check-in completed', severity: 'info', raisedBy: 'You', resolution: '' },
   ],
   checkIn: {
+    dummy: true,
     doneAt: '07:05',
     sleepMinutes: 370,
     sleepGoalMinutes: 420,

@@ -3,6 +3,8 @@
 > **Status: dashboard werkt** met het echte horloge via Bluetooth, met een demohorloge op de laptop, en als browservoorbeeld met voorbeelddata. Zie [Wat werkt](#wat-werkt).
 >
 > Starten: `npm install` en dan `npm run tauri dev` (desktopapp met Bluetooth) of `npm run dev` (alleen de interface in de browser).
+>
+> **Geen horloge?** Klik bovenin op **Start demo (dummy data)**. Een nephorloge op de laptop stuurt dan dezelfde pakketten als het echte. Alles wat niet gemeten is, staat gemarkeerd als *Dummy data*, *Demo* of *Example*.
 
 > Dit is een **NASA Space Apps Challenge 2026**-project en staat los van de andere AstroNav-projecten (AstroNav-Nano en verwante repos).
 
@@ -90,14 +92,17 @@ Eén scherm, opgezet als een consolescherm zoals aan boord van een ruimtestation
 | **Logboek** | Alle alarmen van vandaag, wie ze gaf (pols, dashboard, astronaut) en hoe ze zijn afgehandeld. Afhandelen zet de buzzer op het horloge uit. |
 | **Demo** | Een demohorloge op de laptop dat dezelfde pakketten stuurt als het echte horloge, met een verhaal van 5 minuten: stress bouwt op, CO2 loopt op, een elektrode laat los, en alles herstelt. Waarden die het echte horloge in de demomodus simuleert, staan gemarkeerd als **Sim**. |
 | **Link** | youpspace.com rechtsonder, opent in de browser. |
+| **Melding over de data** (onder de bovenbalk) | Zonder horloge: "No watch connected" met een knop **Start demo (dummy data)**. In de demo: "Demo running on dummy data". Bij een demo-crewlid: "Dummy data", met een knop terug naar het echte polsstation. Bij echte data verdwijnt de melding. |
+| **NASA hazards** (tab in het lichaamspaneel) | De vijf hazards van het NASA Human Research Program, met per hazard de status nu, wat AstroNav meet en de HRP-risico's. Straling staat eerlijk op *Not measured*. "More" opent de volledige tabel met bronnen. |
+| **7 dagen** (tab in het trendpaneel) | Haalt na het verbinden de minuutgeschiedenis van het horloge op (`control` 0x10, characteristic `history`): tot 7 dagen, met voortgang, en elke 5 minuten bijgewerkt. "More" toont hartslag, laagste SpO2, ppCO2 met de NASA-grens en activiteit per uur, plus een tabel per dag. Zonder horloge of bij een demo-crewlid: een gegenereerde week, gemarkeerd als *Dummy data*. NASA-STD-3001 [V2 6001]. |
+| **Check-in** (onderbalk) | Zelf in te vullen: slaap, stemming met een notitie, en optioneel bloeddruk en glucose. Per crewlid en per dag bewaard, met een reeks van 14 dagen. Demo-crewleden beginnen met voorbeeldwaarden, gemarkeerd als *Example*. Sluit aan op de HRP-risico's voor slaap en gedrag. |
 | **Crew-kiezer** (bovenbalk) | Kies welk crewlid de console toont. Het eerste crewlid is het echte polsstation; de andere drie zijn **demo-crewleden** (demohorloges op de laptop, gelabeld als "Demo"), elk in een eigen module met een eigen verhaal: CO2 loopt op in Destiny, stress bij een zware werkblok in Kibo, en een rustig crewlid in Harmony. Een gekleurde stip per crewlid toont het ernstigste open alarm, en een uitroepteken op de knop laat zien dat iemand anders een probleem heeft. |
 
 ## Wat nog niet werkt of voorbeelddata is
 
 | Wat | Stand |
 |---|---|
-| **Check-in** (slaap, stemming, bloeddruk, glucose) en de **crewnaam** | **Voorbeelddata.** Er is nog geen invoer; het horloge meet dit niet. |
-| **7 dagen geschiedenis van het horloge** ophalen | Het horloge slaat het op, het dashboard haalt het nog niet op. Trends beginnen bij het verbinden. |
+| **Crewnamen** | Verzonnen namen. |
 | **PTT** (bloeddruktrend uit ECG + PPG) | Niet gebouwd. De ruwe ECG en PPG komen wel binnen met dezelfde klok. |
 | **Meerdere echte horloges tegelijk** | Eén Bluetooth-verbinding tegelijk. De andere crewleden zijn demohorloges. Meerdere verbindingen en een overzicht van de hele crew naast elkaar is de volgende stap. |
 | **Lichtsensor** | Geschrapt in de hardware (zie de firmware-repo). |
@@ -106,10 +111,10 @@ Eén scherm, opgezet als een consolescherm zoals aan boord van een ruimtestation
 ## Testen
 
 ```
-npm test          # 46 tests: pakketten, signaalkwaliteit, demo, crew, interface, mute
+npm test          # 57 tests: pakketten, signaalkwaliteit, demo, crew, geschiedenis, check-in, hazards, interface
 npm run typecheck
 npm run lint
-cd src-tauri && cargo test   # protocol-parser
+cd src-tauri && cargo test   # protocol-parser, ook voor de geschiedenis
 ```
 
 ## Gebruik van AI (SI)

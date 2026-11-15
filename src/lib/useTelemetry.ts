@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { Snapshot } from '../types';
@@ -6,6 +6,21 @@ import { sample } from '../data/sample';
 import { DEMO_TICK_MS, DemoWatch } from './demo';
 import { LiveModel } from './live';
 import { CONNECTION_CANCELLED, type LinkStatus, type Packet } from './packets';
+import { decode, dummyHistory, HISTORY_MINUTES, type HistoryFrame, type HistoryMinute } from './history';
+
+// The watch's minute history as the console has it. `dummy` is generated on this laptop.
+export interface HistoryView {
+  minutes: HistoryMinute[];
+  source: 'watch' | 'dummy';
+  status: 'idle' | 'loading' | 'done' | 'none' | 'unsupported';
+  received: number;
+  total: number;
+}
+
+// a top-up of the newest minutes while connected
+const HISTORY_REFRESH_MS = 5 * 60_000;
+// the old firmware has no history; if nothing answers within this time, say so
+const HISTORY_ANSWER_MS = 4000;
 
 const inTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const REFRESH_MS = 250;
@@ -43,6 +58,7 @@ export interface Telemetry {
   // stops the buzzer on the watch for this code without marking the alert handled; false when not connected
   silence: (code: number) => Promise<boolean>;
   ecgSamples: (() => number[]) | null;
+  history: HistoryView;
 }
 
 export function useTelemetry(): Telemetry {
@@ -51,6 +67,11 @@ export function useTelemetry(): Telemetry {
   const [data, setData] = useState<Snapshot>(sample);
   const [error, setError] = useState<string | null>(null);
   const [demoWanted, setDemo] = useState(false);
+  // history from the watch, filled while connected
+  const minutes = useRef(new Map<number, HistoryMinute>());
+  const range = useRef<{ oldest: number; newest: number } | null>(null);
+  const phase = useRef<'idle' | 'range' | 'records'>('idle');
+  const [watchHistory, setWatchHistory] = useState<Omit<HistoryView, 'source'>>({ minutes: [], status: 'idle', received: 0, total: 0 });
   const live = link.state === 'connected';
   // a short dropout keeps the history and the screen; only a new session starts from zero
   const session = live || link.state === 'reconnecting';
@@ -66,6 +87,33 @@ export function useTelemetry(): Telemetry {
     if (!inTauri()) return;
     const unlisten = [
       listen<Packet>('telemetry', (e) => model.current.apply(e.payload)),
+      listen<HistoryFrame>('history', (e) => {
+        const f = e.payload;
+        if (f.kind === 'records') {
+          const r = range.current;
+          const now = Date.now();
+          for (const raw of f.records) minutes.current.set(raw.seq, decode(raw, r?.newest ?? raw.seq, now));
+          return;
+        }
+        if (phase.current === 'range') {
+          range.current = { oldest: f.oldest, newest: f.newest };
+          const have = Math.max(0, ...minutes.current.keys());
+          const from = Math.max(f.oldest, f.newest - HISTORY_MINUTES + 1, have + 1);
+          if (f.newest === 0 || from > f.newest) {
+            phase.current = 'idle';
+            setWatchHistory((h) => ({ ...h, status: f.newest === 0 ? 'none' : 'done' }));
+            return;
+          }
+          phase.current = 'records';
+          setWatchHistory((h) => ({ ...h, status: 'loading', total: f.newest - from + 1 + h.received }));
+          invoke('ble_history', { from }).catch(() => { phase.current = 'idle'; });
+        } else if (phase.current === 'records') {
+          phase.current = 'idle';
+          range.current = { oldest: f.oldest, newest: f.newest };
+          const list = [...minutes.current.values()].sort((a, b) => a.seq - b.seq);
+          setWatchHistory({ minutes: list, status: 'done', received: list.length, total: list.length });
+        }
+      }),
       listen<LinkStatus>('ble-status', (e) => {
         setLink(e.payload);
         if (e.payload.state === 'disconnected' && e.payload.reason) setError(e.payload.reason);
@@ -91,6 +139,51 @@ export function useTelemetry(): Telemetry {
   useEffect(() => {
     if (session) model.current = new LiveModel();
   }, [session]);
+
+  // a new session from zero also starts the history from zero (before the fetch below, effects run in order)
+  useEffect(() => {
+    if (!session) return;
+    minutes.current = new Map();
+    range.current = null;
+    phase.current = 'idle';
+    setWatchHistory({ minutes: [], status: 'idle', received: 0, total: 0 });
+  }, [session]);
+
+  // on a new session: ask the watch for its range, then for the last 7 days; top up every few minutes
+  useEffect(() => {
+    if (!live) return;
+    const ask = () => {
+      if (phase.current !== 'idle') return;
+      phase.current = 'range';
+      invoke('ble_history', { from: 0 }).catch(() => { phase.current = 'idle'; });
+      setTimeout(() => {
+        if (phase.current === 'range') {
+          phase.current = 'idle';
+          setWatchHistory((h) => (h.received ? h : { ...h, status: 'unsupported' }));
+        }
+      }, HISTORY_ANSWER_MS);
+    };
+    ask();
+    const id = setInterval(ask, HISTORY_REFRESH_MS);
+    // while records stream in, show the count now and then rather than on every packet
+    const progress = setInterval(() => {
+      if (phase.current !== 'records') return;
+      setWatchHistory((h) => ({ ...h, received: minutes.current.size }));
+    }, 500);
+    return () => {
+      clearInterval(id);
+      clearInterval(progress);
+    };
+  }, [live]);
+
+  // without a watch (example screen or demo) the history is a dummy week made here
+  const [dummy] = useState(() => dummyHistory(Date.now()));
+  const history = useMemo<HistoryView>(
+    () => (session
+      ? { ...watchHistory, source: 'watch' }
+      : { minutes: dummy, source: 'dummy', status: 'done', received: dummy.length, total: dummy.length }),
+    [session, watchHistory, dummy],
+  );
 
   // packets arrive ~40 times a second; the screen redraws a few times a second
   useEffect(() => {
@@ -164,5 +257,6 @@ export function useTelemetry(): Telemetry {
     markHandled,
     silence,
     ecgSamples: session ? ecgSamples : null,
+    history,
   };
 }

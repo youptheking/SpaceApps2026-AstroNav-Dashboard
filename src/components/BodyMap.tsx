@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { BodySystem } from '../types';
+import type { BodySystem, Status } from '../types';
+import type { Hazard } from '../lib/hazards';
 import { Panel } from './Panel';
 
 // where each system sits on the 150x300 figure; the wrist is where the station is worn
@@ -52,6 +53,8 @@ interface StatusProps {
   leadsOff: boolean;
   onSystem: (id: BodySystem['id']) => void;
   onLeads: () => void;
+  hazards: { hazard: Hazard; status: Status | null }[];
+  onHazards: () => void;
 }
 
 function ElectrodeFigure() {
@@ -82,9 +85,9 @@ function LeadList() {
   );
 }
 
-type Tab = 'systems' | 'leads';
+type Tab = 'systems' | 'leads' | 'hazards';
 
-export function CrewStatus({ systems, leadsOff, onSystem, onLeads }: StatusProps) {
+export function CrewStatus({ systems, leadsOff, onSystem, onLeads, hazards, onHazards }: StatusProps) {
   const [tab, setTab] = useState<Tab>('systems');
   const concerns = systems.filter((s) => s.status !== 'ok').length;
 
@@ -101,12 +104,33 @@ export function CrewStatus({ systems, leadsOff, onSystem, onLeads }: StatusProps
       <button role="tab" aria-selected={tab === 'leads'} onClick={() => setTab('leads')}>
         ECG leads{leadsOff && <span className="dot watch" aria-label="electrode loose" />}
       </button>
+      <button role="tab" aria-selected={tab === 'hazards'} onClick={() => setTab('hazards')}>
+        NASA hazards
+      </button>
     </span>
   );
 
   return (
-    <Panel title="Body" className="body" meta={tabs} more={tab === 'leads' ? 'More' : undefined} onMore={tab === 'leads' ? onLeads : undefined}>
-      {tab === 'systems' ? (
+    <Panel
+      title="Body"
+      className="body"
+      meta={tabs}
+      more={tab === 'systems' ? undefined : 'More'}
+      onMore={tab === 'leads' ? onLeads : tab === 'hazards' ? onHazards : undefined}
+    >
+      {tab === 'hazards' ? (
+        <ul className="hazards">
+          {hazards.map(({ hazard, status }) => (
+            <li key={hazard.id}>
+              <button onClick={onHazards}>
+                <span className={`dot ${status ?? 'info'}`} />
+                <span className="name">{hazard.name}</span>
+                <span className={`cover ${hazard.coverage}`}>{COVERAGE[hazard.coverage]}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : tab === 'systems' ? (
         <>
           <svg className="figure" viewBox="0 0 150 300" aria-hidden="true">
             <Silhouette />
@@ -136,6 +160,35 @@ export function CrewStatus({ systems, leadsOff, onSystem, onLeads }: StatusProps
         </>
       )}
     </Panel>
+  );
+}
+
+const COVERAGE = { covered: 'Monitored', partly: 'Partly', none: 'Not measured' } as const;
+
+// The five hazards of human spaceflight (NASA HRP) and what AstroNav does for each.
+export function HazardsDetail({ hazards }: { hazards: { hazard: Hazard; status: Status | null }[] }) {
+  return (
+    <div className="hazard-detail">
+      <p className="popup-text">
+        NASA&rsquo;s Human Research Program groups the dangers of spaceflight into five hazards. This is what AstroNav does for each, and the HRP risks it relates to.
+      </p>
+      <table className="log-table hazard-table">
+        <thead>
+          <tr><th>Hazard</th><th>Now</th><th>What AstroNav does</th><th>HRP risks</th></tr>
+        </thead>
+        <tbody>
+          {hazards.map(({ hazard, status }) => (
+            <tr key={hazard.id}>
+              <td><b>{hazard.name}</b><div className="muted small">{hazard.nasa}</div></td>
+              <td><span className={`dot ${status ?? 'info'}`} /> <span className={`cover ${hazard.coverage}`}>{COVERAGE[hazard.coverage]}</span></td>
+              <td>{hazard.measures}</td>
+              <td className="muted small">{hazard.risks.join(' · ')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="muted small">Sources: nasa.gov/hrp/hazards, nasa.gov/hrp/risks; radiation: Canadian Space Agency, &ldquo;Monitoring radiation for astronaut health&rdquo; (2026).</p>
+    </div>
   );
 }
 

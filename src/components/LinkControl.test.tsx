@@ -17,6 +17,7 @@ const telemetry = (link: LinkStatus, over: Partial<Telemetry> = {}): Telemetry =
   markHandled: vi.fn(),
   silence: vi.fn(async () => true),
   ecgSamples: null,
+  history: { minutes: [], source: 'dummy', status: 'done', received: 0, total: 0 },
   ...over,
 });
 

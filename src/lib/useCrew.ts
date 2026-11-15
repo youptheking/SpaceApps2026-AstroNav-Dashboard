@@ -5,6 +5,7 @@ import { CREW, crewOf, worstOpen, type CrewMember } from './crew';
 import type { CwClass } from './cw';
 import { DEMO_TICK_MS, DemoWatch } from './demo';
 import { LiveModel } from './live';
+import { dummyHistory } from './history';
 import type { Telemetry } from './useTelemetry';
 
 const REFRESH_MS = 250;
@@ -13,6 +14,7 @@ interface DemoCrew {
   member: CrewMember;
   watch: DemoWatch;
   model: LiveModel;
+  history: ReturnType<typeof dummyHistory>;
 }
 
 export interface CrewEntry {
@@ -33,7 +35,14 @@ function startDemos(now = new Date()): DemoCrew[] {
     const watch = new DemoWatch(member.demo);
     const model = new LiveModel();
     for (const [p, at] of watch.history(now)) model.apply(p, at);
-    return { member, watch, model };
+    // each demo crew member gets their own dummy week; Okafor's has a CO2 day, like their story
+    const seed = [...member.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
+    const history = dummyHistory(now.getTime(), {
+      restingHr: member.demo?.restingHr,
+      seed,
+      co2Peak: member.demo?.story === 'co2' ? 6 * 24 + 10 : 2 * 24 + 15,
+    });
+    return { member, watch, model, history };
   });
 }
 
@@ -82,6 +91,7 @@ export function useCrew(real: Telemetry): CrewView {
       markHandled: (id) => demo.model.markHandled(id),
       silence: async () => true,
       ecgSamples: () => demo.model.ecgSamples(),
+      history: { minutes: demo.history, source: 'dummy', status: 'done', received: demo.history.length, total: demo.history.length },
     }
     : real;
 

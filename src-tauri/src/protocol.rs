@@ -89,6 +89,9 @@ impl<'a> Reader<'a> {
     fn new(buf: &'a [u8]) -> Self {
         Self { buf, pos: HEADER_LEN }
     }
+    fn at(buf: &'a [u8], pos: usize) -> Self {
+        Self { buf, pos }
+    }
     fn u8(&mut self) -> u8 {
         let v = self.buf[self.pos];
         self.pos += 1;
@@ -248,6 +251,102 @@ pub fn parse(buf: &[u8]) -> Result<Packet, ParseError> {
     })
 }
 
+// ---- history (extension on v1, characteristic `history`) ----
+// Minute summaries the watch keeps in flash for 7 days, NASA-STD-3001 [V2 6001].
+
+pub const HISTORY_RECORD_LEN: usize = 58;
+const HISTORY_RECORD_VERSION: u8 = 2;
+
+/// One minute on the watch. Raw values; `flags` says which ones were measured that minute.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryRecord {
+    pub seq: u32,
+    pub unix_time: u32,
+    pub flags: u8,
+    pub status: u8,
+    pub alerts: u16,
+    pub hr_avg: u8,
+    pub hr_min: u8,
+    pub hr_max: u8,
+    pub spo2_avg: u8,
+    pub spo2_min: u8,
+    /// 0.01 °C
+    pub skin_temp: i16,
+    /// ppm, one per 5 seconds
+    pub co2: Vec<u16>,
+    /// 0.01 mmHg, 1-hour average at the end of the minute
+    pub ppco2_avg: u16,
+    /// 0.01 °C
+    pub cabin_temp: i16,
+    /// 0.01 %
+    pub humidity: u16,
+    /// 0.1 hPa
+    pub pressure: u16,
+    /// 0.01 µS
+    pub gsr: u16,
+    /// % of the minute not at rest
+    pub activity: u8,
+    pub tremor: u8,
+    pub battery_mv: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum HistoryFrame {
+    /// Oldest and newest record on the watch; sent on request and again when a transfer is done.
+    Range { oldest: u32, newest: u32 },
+    Records { records: Vec<HistoryRecord> },
+}
+
+fn history_record(buf: &[u8]) -> Option<HistoryRecord> {
+    if buf.len() < HISTORY_RECORD_LEN || buf[0] != HISTORY_RECORD_VERSION {
+        return None;
+    }
+    let mut r = Reader::at(buf, 1);
+    Some(HistoryRecord {
+        seq: r.u32(),
+        unix_time: r.u32(),
+        flags: r.u8(),
+        status: r.u8(),
+        alerts: r.u16(),
+        hr_avg: r.u8(),
+        hr_min: r.u8(),
+        hr_max: r.u8(),
+        spo2_avg: r.u8(),
+        spo2_min: r.u8(),
+        skin_temp: r.i16(),
+        co2: (0..12).map(|_| r.u16()).collect(),
+        ppco2_avg: r.u16(),
+        cabin_temp: r.i16(),
+        humidity: r.u16(),
+        pressure: r.u16(),
+        gsr: r.u16(),
+        activity: r.u8(),
+        tremor: r.u8(),
+        battery_mv: r.u16(),
+    })
+}
+
+/// `[0][u32 oldest][u32 newest]` is the range; `[n][record × n]` are n records.
+pub fn parse_history(buf: &[u8]) -> Result<HistoryFrame, ParseError> {
+    let count = *buf.first().ok_or(ParseError::TooShort { kind: 0, len: 0 })? as usize;
+    if count == 0 {
+        if buf.len() < 9 {
+            return Err(ParseError::TooShort { kind: 0, len: buf.len() });
+        }
+        let mut r = Reader::at(buf, 1);
+        return Ok(HistoryFrame::Range { oldest: r.u32(), newest: r.u32() });
+    }
+    if buf.len() < 1 + count * HISTORY_RECORD_LEN {
+        return Err(ParseError::TooShort { kind: count as u8, len: buf.len() });
+    }
+    let records = (0..count)
+        .filter_map(|i| history_record(&buf[1 + i * HISTORY_RECORD_LEN..1 + (i + 1) * HISTORY_RECORD_LEN]))
+        .collect();
+    Ok(HistoryFrame::Records { records })
+}
+
 /// `control` commands from the dashboard to the wrist.
 pub mod control {
     pub fn buzzer_test() -> Vec<u8> {
@@ -275,6 +374,12 @@ pub mod control {
     }
     pub fn demo_mode(on: bool) -> Vec<u8> {
         vec![0x12, on as u8]
+    }
+    /// 0 asks for the range only; otherwise all records from `from` on.
+    pub fn history(from: u32) -> Vec<u8> {
+        let mut v = vec![0x10];
+        v.extend_from_slice(&from.to_le_bytes());
+        v
     }
 }
 
@@ -399,5 +504,50 @@ mod tests {
     #[test]
     fn unlock_matches_the_documented_example() {
         assert_eq!(control::unlock(873320), vec![0x13, 0x68, 0x53, 0x0D, 0x00]);
+    }
+
+    fn history_bytes(seq: u32) -> Vec<u8> {
+        let mut v = vec![2];
+        v.extend_from_slice(&seq.to_le_bytes());
+        v.extend_from_slice(&1_763_200_000u32.to_le_bytes());
+        v.extend_from_slice(&[0b1000_0001, 0]);
+        v.extend_from_slice(&(1u16 << 10).to_le_bytes());
+        v.extend_from_slice(&[72, 64, 88, 97, 95]);
+        v.extend_from_slice(&3380i16.to_le_bytes());
+        for i in 0..12u16 {
+            v.extend_from_slice(&(3400 + i).to_le_bytes());
+        }
+        v.extend_from_slice(&261u16.to_le_bytes());
+        v.extend_from_slice(&2240i16.to_le_bytes());
+        v.extend_from_slice(&4600u16.to_le_bytes());
+        v.extend_from_slice(&10132u16.to_le_bytes());
+        v.extend_from_slice(&250u16.to_le_bytes());
+        v.extend_from_slice(&[12, 3]);
+        v.extend_from_slice(&3950u16.to_le_bytes());
+        assert_eq!(v.len(), HISTORY_RECORD_LEN);
+        v
+    }
+
+    #[test]
+    fn history_range_and_records() {
+        let mut range = vec![0];
+        range.extend_from_slice(&5u32.to_le_bytes());
+        range.extend_from_slice(&900u32.to_le_bytes());
+        assert_eq!(parse_history(&range), Ok(HistoryFrame::Range { oldest: 5, newest: 900 }));
+
+        let mut frame = vec![2];
+        frame.extend(history_bytes(41));
+        frame.extend(history_bytes(42));
+        let HistoryFrame::Records { records } = parse_history(&frame).unwrap() else { panic!("expected records") };
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[1].seq, 42);
+        assert_eq!(records[0].hr_avg, 72);
+        assert_eq!(records[0].co2[11], 3411);
+        assert_eq!(records[0].ppco2_avg, 261);
+        assert_eq!(records[0].battery_mv, 3950);
+        assert_eq!(records[0].alerts, 1 << 10);
+
+        assert!(parse_history(&frame[..60]).is_err());
+        assert_eq!(control::history(0x0102_0304), vec![0x10, 4, 3, 2, 1]);
     }
 }

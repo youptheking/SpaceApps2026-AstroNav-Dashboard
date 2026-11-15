@@ -16,6 +16,8 @@ const SERVICE: Uuid = uuid!("2075864c-7ef8-4db3-9901-ff4606218bb1");
 const CHAR_DATA: Uuid = uuid!("8b4d589b-2465-4b5e-9a2c-219eb307cabe");
 const CHAR_EVENTS: Uuid = uuid!("631cd0ae-17e9-48b0-beec-431b6a4ca732");
 const CHAR_CONTROL: Uuid = uuid!("4419bc3d-3bfd-40d1-8da1-6bcae37219b5");
+/// Extension on v1: 7 days of minute summaries. Older firmware does not have it.
+const CHAR_HISTORY: Uuid = uuid!("d7a1e5c2-3b4f-4c8a-9e61-0b7f2a9c4d13");
 
 const SCAN_TIMEOUT: Duration = Duration::from_secs(12);
 // the watch answers a good code within a second; a bit of slack for the radio
@@ -74,7 +76,17 @@ fn emit_status(app: &AppHandle, status: LinkStatus) {
     let _ = app.emit("ble-status", status);
 }
 
-fn forward(app: &AppHandle, value: &[u8]) {
+fn forward(app: &AppHandle, n: &ValueNotification) {
+    if n.uuid == CHAR_HISTORY {
+        match protocol::parse_history(&n.value) {
+            Ok(frame) => {
+                let _ = app.emit("history", &frame);
+            }
+            Err(e) => eprintln!("[ble] skipped history frame: {e}"),
+        }
+        return;
+    }
+    let value = &n.value;
     match protocol::parse(value) {
         Ok(packet) => {
             let _ = app.emit("telemetry", &packet);
@@ -176,6 +188,10 @@ impl Ble {
             let control = find(CHAR_CONTROL).ok_or("The watch has no control characteristic")?;
             peripheral.subscribe(&data).await.map_err(|e| format!("Could not listen to the watch: {e}"))?;
             peripheral.subscribe(&events).await.map_err(|e| format!("Could not listen to the watch: {e}"))?;
+            // history is optional: older firmware has no such characteristic
+            if let Some(history) = find(CHAR_HISTORY) {
+                let _ = peripheral.subscribe(&history).await;
+            }
             let mut notifications = peripheral.notifications().await.map_err(|e| e.to_string())?;
 
             peripheral
@@ -202,7 +218,7 @@ impl Ble {
                 return fail(e);
             }
         };
-        forward(app, &first.value);
+        forward(app, &first);
 
         // the watch keeps its history with real timestamps once it knows the time
         let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as u32).unwrap_or(0);
@@ -254,7 +270,7 @@ fn spawn_watch(app: AppHandle, peripheral: Peripheral, mut notifications: Notifi
                 Ok(Some(n)) => {
                     silent = 0;
                     count += 1;
-                    forward(&app, &n.value);
+                    forward(&app, &n);
                 }
                 Ok(None) => break,
                 // Windows does not always end the stream when the watch walks away, so check by hand

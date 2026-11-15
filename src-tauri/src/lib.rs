@@ -43,6 +43,12 @@ async fn ble_raw_streams(ble: State<'_, Ble>, on: bool) -> Result<(), String> {
     ble.send(control::raw_streams(on)).await
 }
 
+/// Asks the watch for its minute history: 0 for the range, otherwise every record from `from` on.
+#[tauri::command]
+async fn ble_history(ble: State<'_, Ble>, from: u32) -> Result<(), String> {
+    ble.send(control::history(from)).await
+}
+
 #[tauri::command]
 async fn ble_demo_mode(ble: State<'_, Ble>, on: bool) -> Result<(), String> {
     ble.send(control::demo_mode(on)).await
@@ -62,6 +68,7 @@ pub fn run() {
             ble_buzzer_test,
             ble_raw_streams,
             ble_demo_mode,
+            ble_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AstroNav Dashboard");
