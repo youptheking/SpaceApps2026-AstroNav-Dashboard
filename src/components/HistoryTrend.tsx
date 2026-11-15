@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { HistoryView } from '../lib/useTelemetry';
 import { byDay, byHour, hourLabels as labels, type HourSummary } from '../lib/history';
-import { niceTicks, PPCO2_LIMIT } from '../lib/health';
+import { niceTicks, PPCO2_LIMIT, spo2Level } from '../lib/health';
 import { LineChart } from './LineChart';
 
 function series(hours: HourSummary[], f: (h: HourSummary) => number | null) {
@@ -93,7 +93,7 @@ export function HistoryDetail({ history }: { history: HistoryView }) {
             <tr key={d.day}>
               <td>{d.day}</td>
               <td className="fig">{d.hrAvg ?? '—'}</td>
-              <td className={`fig${d.spo2Min !== null && d.spo2Min < 94 ? ' watch-text' : ''}`}>{d.spo2Min ?? '—'}</td>
+              <td className={`fig${spo2Level(d.spo2Min) !== 'ok' ? ' watch-text' : ''}`}>{d.spo2Min ?? '—'}</td>
               <td className={`fig${d.ppco2Max !== null && d.ppco2Max > PPCO2_LIMIT ? ' watch-text' : ''}`}>{d.ppco2Max?.toFixed(2) ?? '—'}</td>
               <td className="fig">{d.activeMinutes}</td>
               <td className="fig">{d.restHours}</td>

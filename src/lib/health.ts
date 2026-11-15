@@ -2,6 +2,17 @@ import type { Series } from '../types';
 
 export const PPCO2_LIMIT = 3.0; // mmHg, 1-hour average, NASA-STD-3001 V2 6004
 
+// WHO Pulse Oximetry Training Manual (WHO/Lifebox, 2011), p. 12: healthy patients 95 % or above;
+// "If SpO2 is 94% or below, the patient must be assessed quickly"; "SpO2 of < 90% is a clinical emergency"
+export const SPO2_WARN_AT_OR_BELOW = 94;
+export const SPO2_ALARM_BELOW = 90;
+
+export function spo2Level(spo2: number | null): 'ok' | 'warning' | 'alarm' {
+  if (spo2 === null) return 'ok';
+  if (spo2 < SPO2_ALARM_BELOW) return 'alarm';
+  return spo2 <= SPO2_WARN_AT_OR_BELOW ? 'warning' : 'ok';
+}
+
 export function average(values: Series): number | null {
   const real = values.filter((v): v is number => v !== null);
   if (real.length === 0) return null;

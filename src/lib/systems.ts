@@ -1,5 +1,5 @@
 import type { BodySystem, Status, Vitals } from '../types';
-import { percentFromBaseline } from './health';
+import { percentFromBaseline, spo2Level } from './health';
 
 type Text = Pick<BodySystem, 'name' | 'what' | 'inSpace' | 'whenToAct' | 'hazard' | 'risks'>;
 
@@ -26,7 +26,7 @@ export const SYSTEM_TEXT: Record<BodySystem['id'], Text> = {
     name: 'Lungs and oxygen',
     what: 'How much of your blood is carrying oxygen.',
     inSpace: 'Cabin air is closed and recycled. A fault in life support shows up here and in the CO2 reading.',
-    whenToAct: 'Below 94 % for 30 seconds is a warning, below 90 % an alarm. Stop exercising and check the cabin air.',
+    whenToAct: 'Healthy is 95 % or above. 94 % or below for 30 seconds is a warning, below 90 % an alarm (WHO). Stop exercising and check the cabin air.',
     hazard: 'Hostile/Closed Environments',
     risks: ['Risk of Hypoxia'],
   },
@@ -73,7 +73,7 @@ export function deriveSystems({ vitals, hrvNow, hrvBaseline, stressActive, activ
   const heart = system('heart', heartStatus, hr === null ? 'No reading' : `${hr} bpm${vitals.activity === 0 ? ' at rest' : ''}${vitals.hrEcg !== null ? `, ${vitals.rhythmRegular ? 'regular' : 'irregular'}` : ''}`);
 
   const spo2 = vitals.spo2;
-  const lungsStatus: Status = spo2 === null ? 'ok' : spo2 < 90 ? 'alert' : spo2 < 94 ? 'watch' : 'ok';
+  const lungsStatus: Status = ({ ok: 'ok', warning: 'watch', alarm: 'alert' } as const)[spo2Level(spo2)];
   const lungs = system('lungs', activeCodes.has(2) && lungsStatus === 'ok' ? 'watch' : lungsStatus, spo2 === null ? (vitals.skinContact ? 'No reading' : 'No skin contact') : `SpO2 ${spo2} %`);
 
   const skin = system('skin', 'ok', vitals.skinTemp === null ? 'No reading' : `${vitals.skinTemp.toFixed(1)} °C at the wrist`);

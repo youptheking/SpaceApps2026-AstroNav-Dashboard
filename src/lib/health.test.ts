@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { hourAverage, niceTicks, percentFromBaseline, rmssd, sampleTimes, signed } from './health';
+import { hourAverage, niceTicks, percentFromBaseline, rmssd, sampleTimes, signed, spo2Level } from './health';
+import { adviceFor } from './advice';
 import { sample } from '../data/sample';
-import { SYSTEM_TEXT } from './systems';
+import { deriveSystems, SYSTEM_TEXT } from './systems';
 
 describe('health helpers', () => {
   test('hour average uses the last hour of samples and skips gaps', () => {
@@ -56,4 +57,23 @@ test('every body system names its NASA HRP hazard and at least one risk', () => 
     expect(t.risks.length).toBeGreaterThan(0);
     for (const r of t.risks) expect(r).toMatch(/^Risk of /);
   }
+});
+
+// WHO Pulse Oximetry Training Manual (2011), p. 12: "If SpO2 is 94% or below, the patient must be
+// assessed quickly"; "SpO2 of < 90% is a clinical emergency"
+test('SpO2 follows the WHO thresholds: 94 % or below is a warning, below 90 % an alarm', () => {
+  expect(spo2Level(97)).toBe('ok');
+  expect(spo2Level(95)).toBe('ok');
+  expect(spo2Level(94)).toBe('warning');
+  expect(spo2Level(90)).toBe('warning');
+  expect(spo2Level(89)).toBe('alarm');
+  expect(spo2Level(null)).toBe('ok');
+});
+
+test('the advice and the lungs system act on 94 %, not only below it', () => {
+  const vitals = { ...sample.vitals, spo2: 94 };
+  const snap = { ...sample, vitals, alerts: [], stressFrom: null, cabin: { ...sample.cabin, pressureTrendPaMin: 0, ppco2Hour: 1, ppco2Now: 1 } };
+  expect(adviceFor(snap).title).toMatch(/oxygen is low/);
+  expect(deriveSystems({ vitals, hrvNow: 45, hrvBaseline: 45, stressActive: false, activeCodes: new Set() })
+    .find((s) => s.id === 'lungs')?.status).toBe('watch');
 });

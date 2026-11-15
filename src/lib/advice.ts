@@ -1,6 +1,6 @@
 import type { Snapshot } from '../types';
 import { EVENT_CODE, WRIST_MESSAGE } from './packets';
-import { PPCO2_LIMIT } from './health';
+import { PPCO2_LIMIT, spo2Level } from './health';
 
 export interface Advice {
   title: string;
@@ -21,11 +21,12 @@ export function adviceFor(s: Snapshot): Advice {
       wrist: { code: EVENT_CODE.pressureDrop, severity: 2, messageId: WRIST_MESSAGE.pressureDrop, label: 'Alert on wrist' },
     };
   }
-  if (vitals.spo2 !== null && vitals.spo2 < 94) {
+  const spo2 = spo2Level(vitals.spo2);
+  if (spo2 !== 'ok') {
     return {
       title: 'Stop and rest, oxygen is low',
-      why: `Your SpO2 is ${vitals.spo2} %. Stop exercising, breathe calmly and check the cabin air. Below 90 % for long, contact the flight surgeon.`,
-      wrist: { code: EVENT_CODE.spo2Low, severity: vitals.spo2 < 90 ? 2 : 1, messageId: WRIST_MESSAGE.oxygenLow, label: 'Alert on wrist' },
+      why: `Your SpO2 is ${vitals.spo2} %. Stop exercising, breathe calmly and check the cabin air. Below 90 % is an emergency: contact the flight surgeon.`,
+      wrist: { code: EVENT_CODE.spo2Low, severity: spo2 === 'alarm' ? 2 : 1, messageId: WRIST_MESSAGE.oxygenLow, label: 'Alert on wrist' },
     };
   }
   if ((cabin.ppco2Hour ?? 0) > PPCO2_LIMIT || (cabin.ppco2Now ?? 0) > PPCO2_LIMIT) {
