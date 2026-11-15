@@ -1,18 +1,24 @@
 <img src="public/logos/youpspace.png" alt="YoupSpace" height="40"> &nbsp; <img src="public/logos/space-apps.png" alt="NASA Space Apps Challenge" height="40">
 
-# AstroNav Console – Desktop Dashboard
+# AstroNav – Health Monitoring for Astronauts
 
 **NASA Space Apps Challenge 2026** · Challenge: *Create Health Monitoring Software for Astronauts on Space Missions*
 Team AstroNav (solo) · Amsterdam (virtual) · by [YoupSpace](https://youpspace.com)
 
-A desktop console in the style of an ISS caution-and-warning panel. It receives the telemetry from the AstroNav wrist station over Bluetooth Low Energy and turns it into live values, trends and concrete advice for the astronaut.
+**This is the main repo of AstroNav.** It holds the desktop console and the hardware files (PCB and case). The watch firmware lives in its own repo.
 
-| Repo | What |
+AstroNav is a health station worn on the wrist plus a desktop console. The watch measures the astronaut's body and the cabin air and warns on the wrist, even without a laptop. The console receives everything over Bluetooth Low Energy and turns it into live values, trends and one clear next step, in the style of an ISS caution and warning panel.
+
+| Where | What |
 |---|---|
-| [SpaceApps2026-AstroNav-Firmware](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware) | Wrist station: PCB, sensors, firmware, BLE protocol |
-| **SpaceApps2026-AstroNav-Dashboard** (this repo) | Desktop console |
+| **SpaceApps2026-AstroNav-Dashboard** (this repo) | Desktop console, PCB Gerbers, 3D printable case, project overview |
+| [SpaceApps2026-AstroNav-Firmware](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware) | Watch firmware, BLE protocol, sensor and alarm documentation |
 
 > Separate from the other AstroNav projects (AstroNav-Nano and related repos).
+
+## Why I built this
+
+Being part of space has been my dream since I was young. At home, space is what keeps me busy, for example building my own flight controllers for model rockets. When I saw this challenge, I knew I could make it something special by building a real wearable next to the software. I designed the PCB, milled it, soldered it and printed the case myself, all in one weekend. Not everything went to plan, and every setback is listed honestly below. I hope my work inspires others, so I am sharing everything openly: the firmware, the console and the hardware.
 
 ## Features
 
@@ -32,6 +38,26 @@ A desktop console in the style of an ISS caution-and-warning panel. It receives 
 - **Daily check-in:** sleep, mood, optional blood pressure and glucose, stored per crew member and day
 - **Crew selector:** the real wrist station plus demo crew members on pretend watches
 - **Dummy data is always marked:** a notice under the top bar says when the screen shows example values, a demo or a demo crew member
+
+## Build your own watch
+
+Everything you need to build the hardware is in [`hardware/`](hardware/):
+
+| File | What |
+|---|---|
+| [`hardware/pcb/AstroNav_Wrist_Gerber_File.zip`](hardware/pcb/AstroNav_Wrist_Gerber_File.zip) | Gerbers and drill file of the double-sided PCB (EasyEDA). Mill it yourself, as I did, or order it from any PCB maker. |
+| [`hardware/case/AstroNav_Wrist_Holder.stl`](hardware/case/AstroNav_Wrist_Holder.stl) | 3D printable case (bottom part), with loops for a velcro strap |
+| [`hardware/case/AstroNav_Wrist_Lid.stl`](hardware/case/AstroNav_Wrist_Lid.stl) | 3D printable lid, with the window for the display and the buzzer grille |
+
+Print the case in PETG or PLA. Parts list, wiring and pinout: see the [firmware repo](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware) (`docs/inkooplijst.md`, `docs/pinout.md`, `docs/sensoren.md`).
+
+**Known issues in this PCB revision,** fix them when you build one:
+
+- The MAX30102 footprint does not match the module; I connected it with short wires.
+- R5 and R6 (I2C pull-ups, 4.3–4.7 kΩ) must be fitted.
+- The BH1750 footprint has the wrong pin order; the light sensor is left out.
+- The battery connector and power switch are fragile; mine broke off, so my watch runs on USB.
+- The design was drawn for a 0.91" OLED; I used a 0.96" display, turned 90°.
 
 ## Stack
 
@@ -57,7 +83,7 @@ Tests: `npm test`. Without the watch, turn on **Demo** in the top bar.
 - **[V2 6012]:** cabin temperature and humidity limits
 - **NASA OCHMO technical briefs** (CO2, ECLSS, Behavioral Health) for the reasoning behind the limits and why stress is monitored
 
-Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry Training Manual or are our own choice. The console gives advice, not a diagnosis.
+Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry Training Manual or are my own choice. The console gives advice, not a diagnosis.
 
 ## Limitations
 
@@ -71,6 +97,15 @@ Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry
 Per the Space Apps rules, I disclose where AI ("SI") was used.
 
 The idea and concept are my own. Claude (Anthropic) was used to research parts, look up limits in NASA-STD-3001, draft documentation, and write a significant portion of the code from my own design. PCB design, milling, soldering, the case and all testing on the real watch were done by hand.
+
+## License
+
+AstroNav is open source. You may use it, change it and share it, as long as you share your changes under the same license.
+
+- **Software** (this console and the [firmware](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware)): [GPL-3.0](LICENSE)
+- **Hardware** (PCB and case in [`hardware/`](hardware/)): [CERN-OHL-S v2](hardware/LICENSE)
+
+The names AstroNav and YoupSpace and the logos are not covered by these licenses. Please don't present your own version under these names.
 
 ---
 
