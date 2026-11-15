@@ -31,7 +31,9 @@ export function adviceFor(s: Snapshot): Advice {
   if ((cabin.ppco2Hour ?? 0) > PPCO2_LIMIT || (cabin.ppco2Now ?? 0) > PPCO2_LIMIT) {
     return {
       title: 'Check the ventilation',
-      why: 'CO2 is above the NASA limit of 3 mmHg. Headaches start around this level. Move to a ventilated module and check the CO2 scrubber.',
+      why: (cabin.ppco2Hour ?? 0) > PPCO2_LIMIT
+        ? 'The 1-hour CO2 average is over the NASA limit of 3 mmHg. Headaches start around this level. Move to a ventilated module and check the CO2 scrubber.'
+        : `CO2 where you are is ${cabin.ppco2Now?.toFixed(2)} mmHg, above the 3 mmHg NASA allows over an hour. Air does not mix on its own in weightlessness; move to where the fans are or check the scrubber.`,
       wrist: { code: EVENT_CODE.co2Limit, severity: 1, messageId: WRIST_MESSAGE.co2High, label: 'Alert on wrist' },
     };
   }
