@@ -1,14 +1,8 @@
 import { useMemo } from 'react';
 import type { HistoryView } from '../lib/useTelemetry';
-import { byDay, byHour, type HourSummary } from '../lib/history';
+import { byDay, byHour, hourLabels as labels, type HourSummary } from '../lib/history';
 import { niceTicks, PPCO2_LIMIT } from '../lib/health';
 import { LineChart } from './LineChart';
-
-// one label per day, at midnight station time (GMT); the other hours stay unlabelled
-const labels = (hours: HourSummary[]) =>
-  hours.map((h) => (new Date(h.at).getUTCHours() === 0
-    ? new Date(h.at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', timeZone: 'UTC' })
-    : ''));
 
 function series(hours: HourSummary[], f: (h: HourSummary) => number | null) {
   return hours.map(f);

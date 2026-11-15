@@ -139,7 +139,8 @@ export function byDay(minutes: HistoryMinute[]): DaySummary[] {
     if (g) g.push(m);
     else groups.set(k, [m]);
   }
-  return [...groups.entries()].map(([day, ms]) => {
+  // 7 x 24 h of minutes touches 8 calendar days (two half ones); the table shows the last 7
+  return [...groups.entries()].slice(-HISTORY_DAYS).map(([day, ms]) => {
     const spo2 = vals(ms, (m) => m.spo2Min);
     const co2 = vals(ms, (m) => m.ppco2Hour);
     const act = vals(ms, (m) => m.activity);
@@ -154,6 +155,27 @@ export function byDay(minutes: HistoryMinute[]): DaySummary[] {
       alertMinutes: ms.filter((m) => m.alerts !== 0).length,
     };
   });
+}
+
+// Labels for hourly points in station time (GMT): a week gets one label per day at midnight;
+// under two days of data there is no midnight to speak of, so every few hours get "HH:00".
+const MAX_HOUR_LABELS = 8;
+export function hourLabels(hours: { at: number }[]): string[] {
+  const first = hours[0]?.at ?? 0;
+  const last = hours.at(-1)?.at ?? 0;
+  if (last - first >= 48 * 3_600_000) {
+    return hours.map((h) => (new Date(h.at).getUTCHours() === 0
+      ? new Date(h.at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', timeZone: 'UTC' })
+      : ''));
+  }
+  const step = Math.max(1, Math.ceil(hours.length / MAX_HOUR_LABELS));
+  return hours.map((h, i) => (i % step === 0 ? `${String(new Date(h.at).getUTCHours()).padStart(2, '0')}:00` : ''));
+}
+
+// The first record number from `from` to `newest` the console does not have yet, or null when complete.
+export function firstMissing(have: { has(seq: number): boolean }, from: number, newest: number): number | null {
+  for (let seq = from; seq <= newest; seq++) if (!have.has(seq)) return seq;
+  return null;
 }
 
 // ---- dummy history, for the demo and the example screen ----

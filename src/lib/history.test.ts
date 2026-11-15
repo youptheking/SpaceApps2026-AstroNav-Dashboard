@@ -1,5 +1,27 @@
 import { expect, test } from 'vitest';
-import { byDay, byHour, decode, dummyHistory, HISTORY_MINUTES, type RawHistoryRecord } from './history';
+import { byDay, byHour, decode, dummyHistory, firstMissing, hourLabels, HISTORY_MINUTES, type RawHistoryRecord } from './history';
+
+test('a week of hours is labelled once a day, a few hours by the hour', () => {
+  const start = Date.UTC(2026, 10, 8, 14, 0);
+  const week = Array.from({ length: 7 * 24 }, (_, i) => ({ at: start + i * 3_600_000 }));
+  const weekLabels = hourLabels(week).filter(Boolean);
+  expect(weekLabels).toHaveLength(7);
+  expect(weekLabels[0]).toBe('Mon 9');
+
+  const short = Array.from({ length: 5 }, (_, i) => ({ at: Date.UTC(2026, 10, 15, 10 + i) }));
+  expect(hourLabels(short)).toEqual(['10:00', '11:00', '12:00', '13:00', '14:00']);
+  const day = Array.from({ length: 20 }, (_, i) => ({ at: Date.UTC(2026, 10, 15, 0) + i * 3_600_000 }));
+  const dayLabels = hourLabels(day).filter(Boolean);
+  expect(dayLabels.length).toBeGreaterThan(3);
+  expect(dayLabels.length).toBeLessThanOrEqual(10);
+});
+
+test('the first record still missing from a download is found, or none', () => {
+  const have = new Set([5, 6, 7, 9, 10]);
+  expect(firstMissing(have, 5, 10)).toBe(8);
+  expect(firstMissing(have, 5, 7)).toBeNull();
+  expect(firstMissing(new Set(), 3, 4)).toBe(3);
+});
 
 const raw = (over: Partial<RawHistoryRecord> = {}): RawHistoryRecord => ({
   seq: 100, unixTime: 1_763_200_000, flags: 0b1001_1111, status: 0, alerts: 0,
@@ -41,7 +63,9 @@ test('the dummy week is 7 days of minutes with a CO2 day over the NASA limit, an
   const hours = byHour(week);
   expect(hours).toHaveLength(7 * 24);
   const days = byDay(week);
-  expect(days.length).toBeGreaterThanOrEqual(7);
+  // 7 x 24 h touches 8 calendar days; the table shows the last 7, today last
+  expect(days).toHaveLength(7);
+  expect(days.at(-1)!.day).toBe(new Date(now).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
   expect(days.some((d) => (d.ppco2Max ?? 0) > 3)).toBe(true);
   // asleep about 8.5 h a day: lots of rest
   expect(days[2]!.restHours).toBeGreaterThan(6);

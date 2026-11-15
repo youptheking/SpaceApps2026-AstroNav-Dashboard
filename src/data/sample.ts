@@ -62,7 +62,6 @@ export const sample: Snapshot = {
     { id: 's2', code: 1, time: '13:58', text: 'CO2 above 3 mmHg, peak 3.04', severity: 'warning', raisedBy: 'Wrist', resolution: 'Cleared 14:06' },
     { id: 's3', code: 5, time: '12:15', text: 'ECG electrode loose', severity: 'info', raisedBy: 'Wrist', resolution: 'Fixed 12:17' },
     { id: 's4', code: 7, time: '09:12', text: 'Shock detected, 3.4 g', severity: 'warning', raisedBy: 'Wrist', resolution: 'Seen by you' },
-    { id: 's5', code: null, time: '07:05', text: 'Check-in completed', severity: 'info', raisedBy: 'You', resolution: '' },
   ],
   checkIn: {
     dummy: true,

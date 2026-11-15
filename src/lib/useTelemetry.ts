@@ -6,7 +6,7 @@ import { sample } from '../data/sample';
 import { DEMO_TICK_MS, DemoWatch } from './demo';
 import { LiveModel } from './live';
 import { CONNECTION_CANCELLED, type LinkStatus, type Packet } from './packets';
-import { decode, dummyHistory, HISTORY_MINUTES, type HistoryFrame, type HistoryMinute } from './history';
+import { decode, dummyHistory, firstMissing, HISTORY_MINUTES, type HistoryFrame, type HistoryMinute } from './history';
 
 // The watch's minute history as the console has it. `dummy` is generated on this laptop.
 export interface HistoryView {
@@ -21,6 +21,11 @@ export interface HistoryView {
 const HISTORY_REFRESH_MS = 5 * 60_000;
 // the old firmware has no history; if nothing answers within this time, say so
 const HISTORY_ANSWER_MS = 4000;
+// The watch sends records every 20 ms. A notification can get lost, mostly right after
+// connecting when the live stream starts too; after this much silence, ask again from the
+// first missing record instead of waiting for an end that never comes.
+const HISTORY_STALL_MS = 2500;
+const HISTORY_RETRIES = 5;
 
 const inTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const REFRESH_MS = 250;
@@ -71,12 +76,30 @@ export function useTelemetry(): Telemetry {
   const minutes = useRef(new Map<number, HistoryMinute>());
   const range = useRef<{ oldest: number; newest: number } | null>(null);
   const phase = useRef<'idle' | 'range' | 'records'>('idle');
+  // the download in progress: from which record, when the last frame came, how often re-asked
+  const fetch = useRef({ from: 0, lastFrameAt: 0, retries: 0 });
   const [watchHistory, setWatchHistory] = useState<Omit<HistoryView, 'source'>>({ minutes: [], status: 'idle', received: 0, total: 0 });
   const live = link.state === 'connected';
   // a short dropout keeps the history and the screen; only a new session starts from zero
   const session = live || link.state === 'reconnecting';
   // the real watch wins over the pretend one
   const demo = demoWanted && !session;
+
+  // history download, shared by the frame listener and the stall check (refs only, so safe in both)
+  const finishHistory = () => {
+    phase.current = 'idle';
+    const list = [...minutes.current.values()].sort((a, b) => a.seq - b.seq);
+    setWatchHistory({ minutes: list, status: 'done', received: list.length, total: list.length });
+  };
+  // asks again from the first missing record; false when nothing is missing or it gave up
+  const resumeHistory = () => {
+    const r = range.current;
+    const missing = r ? firstMissing(minutes.current, fetch.current.from, r.newest) : null;
+    if (missing === null || fetch.current.retries >= HISTORY_RETRIES) return false;
+    fetch.current = { ...fetch.current, lastFrameAt: Date.now(), retries: fetch.current.retries + 1 };
+    invoke('ble_history', { from: missing }).catch(() => { phase.current = 'idle'; });
+    return true;
+  };
 
   const showError = useCallback((e: unknown) => {
     const msg = String(e);
@@ -93,6 +116,9 @@ export function useTelemetry(): Telemetry {
           const r = range.current;
           const now = Date.now();
           for (const raw of f.records) minutes.current.set(raw.seq, decode(raw, r?.newest ?? raw.seq, now));
+          fetch.current.lastFrameAt = now;
+          // everything asked for is here: done, also when the watch's closing range frame got lost
+          if (phase.current === 'records' && r && firstMissing(minutes.current, fetch.current.from, r.newest) === null) finishHistory();
           return;
         }
         if (phase.current === 'range') {
@@ -105,13 +131,12 @@ export function useTelemetry(): Telemetry {
             return;
           }
           phase.current = 'records';
+          fetch.current = { from, lastFrameAt: Date.now(), retries: 0 };
           setWatchHistory((h) => ({ ...h, status: 'loading', total: f.newest - from + 1 + h.received }));
           invoke('ble_history', { from }).catch(() => { phase.current = 'idle'; });
         } else if (phase.current === 'records') {
-          phase.current = 'idle';
-          range.current = { oldest: f.oldest, newest: f.newest };
-          const list = [...minutes.current.values()].sort((a, b) => a.seq - b.seq);
-          setWatchHistory({ minutes: list, status: 'done', received: list.length, total: list.length });
+          // the watch says it is done; fill in anything that went missing on the way
+          if (!resumeHistory()) finishHistory();
         }
       }),
       listen<LinkStatus>('ble-status', (e) => {
@@ -165,10 +190,12 @@ export function useTelemetry(): Telemetry {
     };
     ask();
     const id = setInterval(ask, HISTORY_REFRESH_MS);
-    // while records stream in, show the count now and then rather than on every packet
+    // while records stream in, show the count now and then rather than on every packet,
+    // and pick a stalled download up again where it stopped
     const progress = setInterval(() => {
       if (phase.current !== 'records') return;
       setWatchHistory((h) => ({ ...h, received: minutes.current.size }));
+      if (Date.now() - fetch.current.lastFrameAt > HISTORY_STALL_MS && !resumeHistory()) finishHistory();
     }, 500);
     return () => {
       clearInterval(id);
