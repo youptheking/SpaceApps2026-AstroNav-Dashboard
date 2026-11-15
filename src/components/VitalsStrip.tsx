@@ -63,7 +63,7 @@ export function VitalsStrip({ vitals, battery, simulated, hrvNow, hrvBaseline, e
             {/* live: always draw what comes in (mains hum filtered out), dimmed with a warning when it is not a heartbeat */}
             <EcgTrace bpm={ecgBpm ?? 60} samples={ecgSamples} poor={!!ecgSamples && !vitals.ecgUsable} />
             {ecgSamples && !vitals.ecgUsable && (
-              <button className="leads-off over" onClick={onLeads}>Poor signal, mostly mains hum. Check the electrodes</button>
+              <button className="leads-off over" onClick={onLeads}>No usable ECG: clipped or flat. Check electrodes and wiring</button>
             )}
           </>}
       </div>

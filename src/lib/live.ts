@@ -8,6 +8,7 @@ const STEP_MINUTES = 1;
 const KEEP_MINUTES = 120;
 const BASELINE_MINUTES = 5;
 const ECG_KEEP = 750; // 3 s at 250 Hz
+const ECG_JUDGE_MIN = 250; // 1 s of raw ECG before its quality is judged
 const SEVERITY = ['info', 'warning', 'alarm'] as const;
 const SOURCE = ['Wrist', 'Dashboard', 'You'] as const;
 
@@ -59,6 +60,9 @@ export class LiveModel {
         break;
       }
       case 'rr': {
+        // "beats" found in a clipped or flat ECG are noise and would fake a low HRV (stress);
+        // without a raw ECG stream there is nothing to judge, so the watch is trusted
+        if (this.ecg.length >= ECG_JUDGE_MIN && !ecgUsable(this.ecg)) break;
         const bucket = this.hrvByMinute.get(minute) ?? [];
         for (const ms of p.intervalsMs) {
           this.rr.push({ at: at.getTime(), ms });

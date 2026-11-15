@@ -46,6 +46,19 @@ describe('LiveModel', () => {
     expect(m.snapshot(base, at(30, 1)).vitals.ecgUsable).toBe(false);
   });
 
+  test('beat intervals found in a clipped ECG are not used for HRV', () => {
+    const m = new LiveModel();
+    for (let i = 0; i < 30; i++) m.apply({ kind: 'ecg', header, mv: Array.from({ length: 25 }, (_, j) => [2175, 3159, 2450, 150, 0][j % 5]!) }, at(30));
+    m.apply({ kind: 'rr', header, intervalsMs: [360, 388, 360, 444, 309] }, at(30, 1));
+    expect(m.snapshot(base, at(30, 2)).hrvNow).toBeNull();
+  });
+
+  test('beat intervals still count when the raw ECG stream is off', () => {
+    const m = new LiveModel();
+    m.apply({ kind: 'rr', header, intervalsMs: [900, 920, 880, 910, 905] }, at(30, 1));
+    expect(m.snapshot(base, at(30, 2)).hrvNow).not.toBeNull();
+  });
+
   test('an alert opens, gets worse in place and clears', () => {
     const m = new LiveModel();
     m.apply(event(2, true, 1, 93), at(10));
