@@ -1,126 +1,79 @@
-# NASA Space Apps 2026 – Team AstroNav – Desktopdashboard
+<img src="public/logos/youpspace.svg" alt="YoupSpace" height="40">
 
-> **Status: dashboard werkt** met het echte horloge via Bluetooth, met een demohorloge op de laptop, en als browservoorbeeld met voorbeelddata. Zie [Wat werkt](#wat-werkt).
->
-> Starten: `npm install` en dan `npm run tauri dev` (desktopapp met Bluetooth) of `npm run dev` (alleen de interface in de browser).
->
-> **Geen horloge?** Klik bovenin op **Start demo (dummy data)**. Een nephorloge op de laptop stuurt dan dezelfde pakketten als het echte. Alles wat niet gemeten is, staat gemarkeerd als *Dummy data*, *Demo* of *Example*.
+# AstroNav Console – Desktop Dashboard
 
-> Dit is een **NASA Space Apps Challenge 2026**-project en staat los van de andere AstroNav-projecten (AstroNav-Nano en verwante repos).
+**NASA Space Apps Challenge 2026** · Challenge: *Create Health Monitoring Software for Astronauts on Space Missions*
+Team AstroNav (solo) · Amsterdam (virtual) · by [YoupSpace](https://youpspace.com)
 
-Zusterrepo: **SpaceApps2026-AstroNav-Firmware** (het polsstation)
+A desktop console in the style of an ISS caution-and-warning panel. It receives the telemetry from the AstroNav wrist station over Bluetooth Low Energy and turns it into live values, trends and concrete advice for the astronaut.
 
----
-
-## Deelname
-
-| | |
+| Repo | What |
 |---|---|
-| Teamnaam | Team AstroNav |
-| Deelnamevorm | Solo |
-| Locatie inschrijving | Amsterdam (virtueel evenement) |
+| [SpaceApps2026-AstroNav-Firmware](https://github.com/youptheking/SpaceApps2026-AstroNav-Firmware) | Wrist station: PCB, sensors, firmware, BLE protocol |
+| **SpaceApps2026-AstroNav-Dashboard** (this repo) | Desktop console |
 
-## Tijdlijn
+> Separate from the other AstroNav projects (AstroNav-Nano and related repos).
 
-| Moment | Datum en tijd (NL) |
-|---|---|
-| Start | Zaterdag 14 november 2026, 09:00 |
-| Inleverdeadline | Zondag 15 november 2026, 23:59 |
+## Features
 
-## Challenge
-
-**Create Health Monitoring Software for Astronauts on Space Missions**
-
-Langdurige ruimtemissies brengen risico's met zich mee: straling, isolatie, gewichtloosheid, veranderingen in het immuunsysteem, spieratrofie, belasting van hart en bloedvaten, en stress. Astronauten moeten hun eigen gezondheid kunnen bewaken en direct kunnen ingrijpen.
-
-## Oplossing
-
-Een samenhangend systeem met twee delen:
-
-1. **Polsstation:** een ESP32-sensorstation dat je om de pols draagt (gefreesde PCB en 3D-geprinte behuizing). Het meet lichaam en cabine, geeft lokaal waarschuwingen via OLED en buzzer, en stuurt telemetrie via Bluetooth Low Energy.
-2. **Desktopdashboard (deze repo):** een laptopapp die de telemetrie ontvangt en omzet in overzicht en actie.
+- **Connect and unlock** the watch with the 6-digit code on its screen, automatic reconnect
+- **Caution & warning lamps** per parameter, with ISS-style classes. Mute the sound per lamp; the lamp stays lit.
+- **Vitals:** live ECG trace, heart rate (ECG and optical), SpO2, HRV against a personal baseline, skin-temperature trend
+- **Signal quality first:** optical values during movement or weak pulse are not shown as real, RR data is ignored when the ECG is poor, short dropouts hold the last good value
+- **Cabin air:** 1-hour ppCO2 against the **NASA-STD-3001 limit of 3 mmHg** and the 2.5 mmHg target, pressure trend, temperature, humidity
+- **Body map** with what changes in space and when to act, plus an ECG leads tab that opens by itself when an electrode comes loose
+- **What to do:** the most urgent advice right now, sent to the wrist with one click
+- **Event log** with who raised and who handled each alert
+- **Simulated values are always labelled:** the watch says which values are simulated, the console marks them "Sim"
+- **Demo mode:** a simulated watch on the laptop that sends the same packets and plays a 5-minute story (stress builds, CO2 rises, an electrode comes loose, the breathing break works)
+- **Station time:** everything in GMT, like on board
+- **NASA hazards:** the five hazards of NASA's Human Research Program, with what AstroNav monitors for each and the related HRP risks; radiation is honestly marked "Not measured"
+- **7 days:** the watch stores a summary every minute; the console fetches it over BLE and shows hourly charts (heart rate, lowest SpO2, ppCO2 against the NASA limit, activity) and a table per day
+- **Daily check-in:** sleep, mood, optional blood pressure and glucose, stored per crew member and day
+- **Crew selector:** the real wrist station plus demo crew members on pretend watches
+- **Dummy data is always marked:** a notice under the top bar says when the screen shows example values, a demo or a demo crew member
 
 ## Stack
 
-- **Tauri 2:** desktop-applicatieframework
-- **Rust:** BLE-verbinding (`btleplug`), pakketten uitlezen volgens het protocol (`src-tauri/src/protocol.rs`, `ble.rs`)
-- **React + TypeScript + Vite:** de interface, met eigen grafieken (geen grafiekbibliotheek)
-- **Vitest + Testing Library:** tests voor de pakketverwerking, signaalkwaliteit, demo en interface
-
-## Datastroom
+Tauri 2 · Rust (`btleplug`) for BLE and packet parsing · React + TypeScript · Vite · Vitest
 
 ```
-Polsstation (ESP32)  --BLE-->  Rust-backend (Tauri)  -->  React-UI
-   sensoren uitlezen             pakketten ontvangen         realtime grafieken
-   lokale alarmen                en verwerken                trends
-                                                             beslissingspaneel
+Wrist station (ESP32-S3)  --BLE-->  Rust backend (Tauri)  -->  React console
 ```
 
-## BLE-protocol
-
-Het binaire pakketformaat (service, characteristics, pakkettypes, schaalfactoren) staat in `docs/ble-protocol.md` in de zusterrepo SpaceApps2026-AstroNav-Firmware. Firmware en dashboard volgen allebei dat document.
-
-## Binnenkomende data
-
-| Bron | Meting |
-|---|---|
-| MAX30102 | Hartslag, SpO2, perfusie, PPG-golf, trend van de huidtemperatuur |
-| AD8232 | ECG-golf (250 Hz), RR-intervallen, elektrode los |
-| MPU-6050 | Activiteit, tremor, schok, dubbeltik |
-| GSR | Huidgeleiding (stress) |
-| SCD41 | Cabine-CO2, temperatuur, luchtvochtigheid |
-| BMP180 | Cabinedruk en de trend (lekdetectie) |
-| ~~BH1750~~ | Geschrapt tijdens de bouw (zie de firmware-repo) |
-
-## Wat werkt
-
-Een Engels overzicht van het hele systeem (voor de projectpagina) staat in `docs/status.md` in de firmware-repo.
-
-Eén scherm, opgezet als een consolescherm zoals aan boord van een ruimtestation.
-
-| Onderdeel | Wat het doet |
-|---|---|
-| **Verbinden** | Zoekt het horloge (`AstroNav-Wrist`) en ontgrendelt het met de 6-cijferige code van het OLED. De code wordt onthouden. Valt het signaal weg, dan maakt de app vanzelf opnieuw verbinding en houdt hij de geschiedenis van de sessie vast. |
-| **Caution & Warning-lampen** (bovenaan) | Eén lamp per parameter: ppCO2, cabinedruk, SpO2, hartslag, stress, ECG-elektrodes, huidcontact, schok, klimaat, accu, verbinding. Kleur volgens de ISS-klassen (advisory, caution, warning, emergency). Klik opent het logboek. |
-| **Alarmgeluid per lamp** (rechtsonder) | Per lamp de buzzer op het horloge dempen. Een gedempte lamp blijft branden, knippert niet meer en krijgt een luidsprekericoon. Nieuwe alarmen op die lamp worden op het horloge stilgezet, maar blijven open in het logboek. De keuze wordt onthouden. |
-| **Vitals** | Live ECG-golf (50 Hz-brom eruit gefilterd), hartslag (ECG en optisch), SpO2, perfusie, HRV ten opzichte van de eigen baseline, huidtemperatuurtrend, accu. |
-| **Signaalkwaliteit** | Optische waarden bij beweging, zonder huidcontact of met een zwakke puls worden niet als echt getoond. Een korte uitval (tot 8 s) laat de laatste goede waarde grijs staan ("Holding last reading"). Een ECG die afgekapt of vlak is, wordt gemarkeerd en zijn RR-intervallen tellen niet mee voor HRV. |
-| **Lichaam** | Status per lichaamssysteem (brein en stress, hart, longen en zuurstof, huid en temperatuur, spieren en botten) met uitleg wat er in de ruimte verandert en wanneer je moet handelen. Plus een scherm waar de ECG-elektrodes op de borst horen. |
-| **Cabinelucht** | ppCO2 als 1-uursgemiddelde tegen de **NASA-STD-3001-grens van 3 mmHg** (V2 6004), actuele ppCO2, CO2 in ppm, cabinedruk en de trend (lekdetectie), temperatuur, luchtvochtigheid. |
-| **Wat te doen** | Het belangrijkste advies op dit moment (lek, zuurstof, CO2, stress, elektrode los), met één knop om het als melding naar het horloge te sturen (`control` 0x04). |
-| **HRV vandaag** | HRV per minuut tegen de eigen baseline, met het moment waarop de stresstrend begon. |
-| **Logboek** | Alle alarmen van vandaag, wie ze gaf (pols, dashboard, astronaut) en hoe ze zijn afgehandeld. Afhandelen zet de buzzer op het horloge uit. |
-| **Demo** | Een demohorloge op de laptop dat dezelfde pakketten stuurt als het echte horloge, met een verhaal van 5 minuten: stress bouwt op, CO2 loopt op, een elektrode laat los, en alles herstelt. Waarden die het echte horloge in de demomodus simuleert, staan gemarkeerd als **Sim**. |
-| **Link** | youpspace.com rechtsonder, opent in de browser. |
-| **Melding over de data** (onder de bovenbalk) | Zonder horloge: "No watch connected" met een knop **Start demo (dummy data)**. In de demo: "Demo running on dummy data". Bij een demo-crewlid: "Dummy data", met een knop terug naar het echte polsstation. Bij echte data verdwijnt de melding. |
-| **NASA hazards** (tab in het lichaamspaneel) | De vijf hazards van het NASA Human Research Program, met per hazard de status nu, wat AstroNav meet en de HRP-risico's. Straling staat eerlijk op *Not measured*. "More" opent de volledige tabel met bronnen. |
-| **7 dagen** (tab in het trendpaneel) | Haalt na het verbinden de minuutgeschiedenis van het horloge op (`control` 0x10, characteristic `history`): tot 7 dagen, met voortgang, en elke 5 minuten bijgewerkt. "More" toont hartslag, laagste SpO2, ppCO2 met de NASA-grens en activiteit per uur, plus een tabel per dag. Zonder horloge of bij een demo-crewlid: een gegenereerde week, gemarkeerd als *Dummy data*. NASA-STD-3001 [V2 6001]. |
-| **Check-in** (onderbalk) | Zelf in te vullen: slaap, stemming met een notitie, en optioneel bloeddruk en glucose. Per crewlid en per dag bewaard, met een reeks van 14 dagen. Demo-crewleden beginnen met voorbeeldwaarden, gemarkeerd als *Example*. Sluit aan op de HRP-risico's voor slaap en gedrag. |
-| **Crew-kiezer** (bovenbalk) | Kies welk crewlid de console toont. Het eerste crewlid is het echte polsstation; de andere drie zijn **demo-crewleden** (demohorloges op de laptop, gelabeld als "Demo"), elk in een eigen module met een eigen verhaal: CO2 loopt op in Destiny, stress bij een zware werkblok in Kibo, en een rustig crewlid in Harmony. Een gekleurde stip per crewlid toont het ernstigste open alarm, en een uitroepteken op de knop laat zien dat iemand anders een probleem heeft. |
-
-## Wat nog niet werkt of voorbeelddata is
-
-| Wat | Stand |
-|---|---|
-| **Crewnamen** | Verzonnen namen. |
-| **PTT** (bloeddruktrend uit ECG + PPG) | Niet gebouwd. De ruwe ECG en PPG komen wel binnen met dezelfde klok. |
-| **Meerdere echte horloges tegelijk** | Eén Bluetooth-verbinding tegelijk. De andere crewleden zijn demohorloges. Meerdere verbindingen en een overzicht van de hele crew naast elkaar is de volgende stap. |
-| **Lichtsensor** | Geschrapt in de hardware (zie de firmware-repo). |
-| **Rust-kant** van de link naar youpspace.com (`tauri-plugin-opener`) | Toegevoegd, maar nog niet gebouwd en getest op een pc. |
-
-## Testen
+## Run
 
 ```
-npm test          # 57 tests: pakketten, signaalkwaliteit, demo, crew, geschiedenis, check-in, hazards, interface
-npm run typecheck
-npm run lint
-cd src-tauri && cargo test   # protocol-parser, ook voor de geschiedenis
+npm install
+npm run tauri dev
 ```
 
-## Gebruik van AI (SI)
+Tests: `npm test`. Without the watch, turn on **Demo** in the top bar.
 
-Volgens de regels van NASA Space Apps vermelden we waar AI-tools ("Super Intelligence", SI) zijn gebruikt.
+## NASA resources
 
-- **Idee en concept:** eigen werk. Het concept met polsstation en dashboard, en de keuze voor de challenge, stonden vast vóór er AI werd gebruikt.
-- **Voorbereiding met Claude (Anthropic):** onderzoek naar leverbare onderdelen, de stroom- en pinberekeningen het opzoeken van de grenswaarden in NASA-STD-3001, de planning voor het weekend (`docs/todo.md`) en de eerste versies van de documenten in `docs/` (inkooplijst, ontwerpkeuzes, stroombudget, pinout, PCB-overzicht). De ontwerpbeslissingen zijn door de maker genomen en gecontroleerd.
-- **Code:** het dashboard is grotendeels met Claude geschreven op basis van ons eigen ontwerp: de indeling, de beslislogica, de grenswaarden (NASA-STD-3001 en WHO) en het BLE-protocol zijn door ons bepaald, en alles is getest met de eigen hardware. Waar code met AI-hulp is geschreven, staat dat in de commitbeschrijving.
+- **NASA-STD-3001 Vol. 2, Rev. F, [V2 6004]:** 1-hour average ppCO2 at or below 3 mmHg, shown as a limit line on the CO2 chart
+- **[V2 6022]:** alert the crew locally and remotely; the console is the remote half, the watch the local half
+- **[V2 6012]:** cabin temperature and humidity limits
+- **NASA OCHMO technical briefs** (CO2, ECLSS, Behavioral Health) for the reasoning behind the limits and why stress is monitored
+
+Physiological limits (SpO2, heart rate, stress) come from the WHO Pulse Oximetry Training Manual or are our own choice. The console gives advice, not a diagnosis.
+
+## Limitations
+
+- One real wrist station; the other crew members are demo crew on pretend watches
+- The check-in is stored on this laptop only
+- No radiation sensor (CSA's CANS dosimeter is the logical next step)
+- No blood-pressure trend (pulse transit time) yet; the watch already sends ECG and PPG on one clock
+
+## Use of AI
+
+Per the Space Apps rules, we disclose where AI ("SI") was used.
+
+- **Idea and concept:** our own. The wrist station plus console and the choice of challenge were fixed before any AI was used.
+- **Claude (Anthropic)** was used to write most of the code from our own design (layout, alarm classes, advice rules, protocol), and to draft documentation.
+- Everything was reviewed by us and tested with the real watch. AI use is credited here, in the project summary.
+
+---
+
+Made by [YoupSpace](https://youpspace.com) for NASA Space Apps 2026.
